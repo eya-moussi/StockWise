@@ -72,6 +72,10 @@ export default function CategoriesPage() {
         queryKey: ["categories"],
       });
 
+      await queryClient.invalidateQueries({
+        queryKey: ["products"],
+      });
+
       closeEdit();
     } catch (error) {
       console.error("Erreur modification catégorie :", error);
