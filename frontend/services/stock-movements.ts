@@ -104,7 +104,7 @@ export const stockMovementsService = {
   createOut: async (
     data: CreateStockMovementDto
   ): Promise<StockMovementBase> => {
-    const response = await api.post<StockMovement>(
+    const response = await api.post<StockMovementBase>(
       "/stock-movements/out",
       data
     );
@@ -114,12 +114,13 @@ export const stockMovementsService = {
   createReturn: async (
     data: CreateReturnDto
   ): Promise<StockMovementBase> => {
-    const response = await api.post<StockMovement>(
+    const response = await api.post<StockMovementBase>(
       "/stock-movements/return",
       data
     );
     return response.data;
   },
+
 
   transfer: async (
     data: CreateTransferDto
