@@ -99,28 +99,39 @@ export default function InventoryCountForm() {
     }
   }
 
+  const inputClass =
+    "w-full rounded-xl border border-[#e9ebf5] bg-[#fafaff] px-4 py-3 text-sm text-[#0f1535] outline-none transition placeholder:text-[#9298b4] focus:border-[#6d5ef0]";
+
   return (
     <div className="max-w-lg">
-      <h2 className="text-xl font-bold mb-4">
+      <h2 className="mb-5 text-lg font-semibold text-[#0f1535]">
         Create Inventory Count
       </h2>
 
       {/* Warehouse */}
+      <label
+        htmlFor="warehouse-id"
+        className="mb-2 block text-sm font-medium text-[#343b60]"
+      >
+        Warehouse ID
+      </label>
+
       <input
+        id="warehouse-id"
         type="number"
         min="1"
-        className="border p-2 mb-4 w-full"
+        className={`${inputClass} mb-4`}
         placeholder="Warehouse ID"
         value={warehouseId}
         onChange={(e) => setWarehouseId(e.target.value)}
       />
 
       {/* Product + Quantity */}
-      <div className="flex gap-2 mb-3">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row">
         <input
           type="number"
           min="1"
-          className="border p-2 flex-1"
+          className={`${inputClass} sm:flex-1`}
           placeholder="Product ID"
           value={productId}
           onChange={(e) => setProductId(e.target.value)}
@@ -129,7 +140,7 @@ export default function InventoryCountForm() {
         <input
           type="number"
           min="0"
-          className="border p-2 flex-1"
+          className={`${inputClass} sm:flex-1`}
           placeholder="Counted Quantity"
           value={countedQty}
           onChange={(e) => setCountedQty(e.target.value)}
@@ -137,7 +148,7 @@ export default function InventoryCountForm() {
 
         <button
           type="button"
-          className="border px-3"
+          className="rounded-xl border border-[#e9ebf5] px-5 py-3 text-sm font-medium text-[#343b60] transition hover:bg-[#f3f4fb]"
           onClick={addLine}
         >
           Add
@@ -145,25 +156,27 @@ export default function InventoryCountForm() {
       </div>
 
       {/* Error */}
-      {error && (
-        <p className="text-red-500 mb-3">
-          {error}
-        </p>
-      )}
+      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
       {/* Lines */}
-      <div className="mb-4">
+      <div className="mb-4 space-y-2">
         {lines.map((line, index) => (
-          <p key={index}>
-            Product {line.productId} : {line.countedQty}
-          </p>
+          <div
+            key={index}
+            className="flex items-center justify-between rounded-xl border border-[#e9ebf5] bg-[#fafaff] px-4 py-2.5 text-sm text-[#343b60]"
+          >
+            <span>Product #{line.productId}</span>
+            <span className="font-semibold text-[#0f1535]">
+              {line.countedQty}
+            </span>
+          </div>
         ))}
       </div>
 
       {/* Create */}
       <button
         type="button"
-        className="bg-black text-white px-4 py-2 rounded"
+        className="rounded-xl bg-[#6d5ef0] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
         onClick={submit}
       >
         Create Count

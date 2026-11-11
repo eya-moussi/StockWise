@@ -25,13 +25,24 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Mouvements de stock",
     description: "Suivez les entrées et sorties de stock",
   },
+  "/inventory-counts": {
+    title: "Inventaires",
+    description: "Comparez le stock compté au stock enregistré",
+  },
+  "/audit-logs": {
+    title: "Journaux d'audit",
+    description: "Consultez l'activité du système et des utilisateurs",
+  },
 };
 
 export default function Header() {
   const pathname = usePathname();
 
   const currentPage =
-    pageInfo[pathname] ?? {
+    pageInfo[pathname] ??
+    Object.entries(pageInfo).find(([href]) =>
+      pathname.startsWith(`${href}/`)
+    )?.[1] ?? {
       title: "StockWise",
       description: "Gestion intelligente de votre stock",
     };
