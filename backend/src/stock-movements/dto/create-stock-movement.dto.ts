@@ -9,40 +9,33 @@ import {
 export enum StockMovementType {
   IN = 'IN',
   OUT = 'OUT',
-  TRANSFER = 'TRANSFER',
-  RETURN_CLIENT = 'RETURN_CLIENT',
-  RETURN_SUPPLIER = 'RETURN_SUPPLIER',
-  CORRECTION = 'CORRECTION',
 }
 
-
-export class CreateStockMovementDto {
-
-  @IsOptional()
-@IsEnum(StockMovementType)
-type?: StockMovementType;
-
+export class StockMovementFieldsDto {
+  @IsInt()
+  @IsPositive()
+  productId!: number;
 
   @IsInt()
   @IsPositive()
-  quantity!: number;
-
-
-  @IsInt()
-  productId!: number;
-
-
-  @IsInt()
   warehouseId!: number;
-
 
   @IsOptional()
   @IsInt()
   locationId?: number;
 
-
   @IsOptional()
   @IsString()
   reference?: string;
+}
 
+export class CreateStockMovementInputDto extends StockMovementFieldsDto {
+  @IsInt()
+  @IsPositive()
+  quantity!: number;
+}
+
+export class CreateStockMovementDto extends CreateStockMovementInputDto {
+  @IsEnum(StockMovementType)
+  type!: StockMovementType;
 }

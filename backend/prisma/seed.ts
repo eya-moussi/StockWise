@@ -8,7 +8,23 @@ import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
+function getRequiredSeedPassword(name: string): string {
+  const value = process.env[name];
+
+  if (!value?.trim()) {
+    throw new Error(`Missing required seed environment variable: ${name}`);
+  }
+
+  return value;
+}
+
 async function main() {
+  const adminPassword = getRequiredSeedPassword('SEED_ADMIN_PASSWORD');
+  const stockManagerPassword = getRequiredSeedPassword(
+    'SEED_STOCK_MANAGER_PASSWORD',
+  );
+  const viewerPassword = getRequiredSeedPassword('SEED_VIEWER_PASSWORD');
+
   console.log('Starting ERP demo seed...');
 
   // ============================================================
@@ -44,9 +60,9 @@ async function main() {
   // USERS
   // ============================================================
 
-  const adminPassword = await argon2.hash('AdminERP2026!');
-  const stockManagerPassword = await argon2.hash('StockManager2026!');
-  const viewerPassword = await argon2.hash('ViewerERP2026!');
+  const adminPasswordHash = await argon2.hash(adminPassword);
+  const stockManagerPasswordHash = await argon2.hash(stockManagerPassword);
+  const viewerPasswordHash = await argon2.hash(viewerPassword);
 
   const admin = await prisma.user.upsert({
     where: {
@@ -54,13 +70,13 @@ async function main() {
     },
     update: {
       fullName: 'ERP Administrator',
-      passwordHash: adminPassword,
+      passwordHash: adminPasswordHash,
       roleId: adminRole.id,
     },
     create: {
       fullName: 'ERP Administrator',
       email: 'admin@erp.local',
-      passwordHash: adminPassword,
+      passwordHash: adminPasswordHash,
       roleId: adminRole.id,
     },
   });
@@ -71,13 +87,13 @@ async function main() {
     },
     update: {
       fullName: 'Sarah Ben Salem',
-      passwordHash: stockManagerPassword,
+      passwordHash: stockManagerPasswordHash,
       roleId: stockManagerRole.id,
     },
     create: {
       fullName: 'Sarah Ben Salem',
       email: 'stock.manager@erp.local',
-      passwordHash: stockManagerPassword,
+      passwordHash: stockManagerPasswordHash,
       roleId: stockManagerRole.id,
     },
   });
@@ -88,13 +104,13 @@ async function main() {
     },
     update: {
       fullName: 'Ahmed Trabelsi',
-      passwordHash: viewerPassword,
+      passwordHash: viewerPasswordHash,
       roleId: viewerRole.id,
     },
     create: {
       fullName: 'Ahmed Trabelsi',
       email: 'viewer@erp.local',
-      passwordHash: viewerPassword,
+      passwordHash: viewerPasswordHash,
       roleId: viewerRole.id,
     },
   });
@@ -210,49 +226,69 @@ async function main() {
   // WAREHOUSES
   // ============================================================
 
-  const principal = await prisma.warehouse.findFirst({
-    where: {
+  const warehouseDefinitions = [
+    {
+      name: 'Principal Warehouse',
       type: WarehouseType.PRINCIPAL,
+      description: 'Main storage warehouse',
     },
-    orderBy: {
-      id: 'asc',
+    {
+      name: 'Production Warehouse',
+      type: WarehouseType.PRODUCTION,
+      description: 'Production storage warehouse',
     },
+    {
+      name: 'Distribution Warehouse',
+      type: WarehouseType.DISTRIBUTION,
+      description: 'Distribution storage warehouse',
+    },
+    {
+      name: 'Returns Warehouse',
+      type: WarehouseType.RETOUR,
+      description: 'Returned products warehouse',
+    },
+    {
+      name: 'Scrap Warehouse',
+      type: WarehouseType.REBUT,
+      description: 'Scrapped products warehouse',
+    },
+  ];
+
+     for (const warehouseData of warehouseDefinitions) {
+           const existing = await prisma.warehouse.findFirst({
+      where: { type: warehouseData.type },
+    });
+
+    if (!existing) {
+      await prisma.warehouse.create({
+        data: warehouseData,
+      });
+    }
+  }
+
+  const principal = await prisma.warehouse.findFirst({
+    where: { type: WarehouseType.PRINCIPAL },
+    orderBy: { id: 'asc' },
   });
 
   const production = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.PRODUCTION,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.PRODUCTION },
+    orderBy: { id: 'asc' },
   });
 
   const distribution = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.DISTRIBUTION,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.DISTRIBUTION },
+    orderBy: { id: 'asc' },
   });
 
   const retour = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.RETOUR,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.RETOUR },
+    orderBy: { id: 'asc' },
   });
 
   const rebut = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.REBUT,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.REBUT },
+    orderBy: { id: 'asc' },
   });
 
   if (!principal || !production || !distribution || !retour || !rebut) {
@@ -586,11 +622,6 @@ async function main() {
   // ============================================================
 
   console.log('ERP demo seed completed successfully.');
-  console.log('');
-  console.log('Demo accounts:');
-  console.log('Admin:         admin@erp.local / AdminERP2026!');
-  console.log('Stock Manager: stock.manager@erp.local / StockManager2026!');
-  console.log('Viewer:        viewer@erp.local / ViewerERP2026!');
 }
 
 main()

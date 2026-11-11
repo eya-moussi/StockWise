@@ -33,7 +33,9 @@ export default function LoginPage() {
       const { access_token, role } = response.data;
 
       localStorage.setItem("token", access_token);
-      localStorage.setItem("role", role);
+      if (role) {
+        localStorage.setItem("role", role);
+      }
 
       router.push("/dashboard");
     } catch (err) {
@@ -96,7 +98,7 @@ export default function LoginPage() {
 
             <div>
               <div className="text-[15px] font-semibold tracking-[0.18em]">
-                STOCKFLOW
+                STOCKWISE
               </div>
 
               <div className="mt-0.5 text-[9px] uppercase tracking-[0.24em] text-white/35">
@@ -294,7 +296,7 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="relative z-20 flex items-center justify-between border-t border-white/[0.06] pt-5 text-[10px] uppercase tracking-[0.18em] text-white/25">
             <span>Secure workspace</span>
-            <span>StockFlow © 2026</span>
+            <span>StockWise © 2026</span>
           </div>
         </section>
 
@@ -339,7 +341,7 @@ export default function LoginPage() {
 
               <div>
                 <div className="text-[15px] font-semibold tracking-[0.18em]">
-                  STOCKFLOW
+                  STOCKWISE
                 </div>
 
                 <div className="text-[9px] uppercase tracking-[0.24em] text-white/35">

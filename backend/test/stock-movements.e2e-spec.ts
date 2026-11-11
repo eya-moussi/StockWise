@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { createE2eApp } from './create-e2e-app';
 
 
 describe('Stock Movements concurrency', () => {
@@ -19,15 +20,12 @@ describe('Stock Movements concurrency', () => {
       }).compile();
 
 
-    app =
-      moduleRef.createNestApplication();
-
-    await app.init();
+    app = await createE2eApp(moduleRef);
 
 
     const login =
       await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({
           email: 'ad@test.com',
           password: 'Admin123',
@@ -60,7 +58,7 @@ describe('Stock Movements concurrency', () => {
     const results =
       await Promise.all([
         request(app.getHttpServer())
-          .post('/stock-movements')
+          .post('/api/v1/stock-movements')
           .set(
             'Authorization',
             `Bearer ${token}`,
@@ -69,7 +67,7 @@ describe('Stock Movements concurrency', () => {
 
 
         request(app.getHttpServer())
-          .post('/stock-movements')
+          .post('/api/v1/stock-movements')
           .set(
             'Authorization',
             `Bearer ${token}`,

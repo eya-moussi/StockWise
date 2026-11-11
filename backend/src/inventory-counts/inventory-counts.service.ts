@@ -33,7 +33,7 @@ export class InventoryCountsService {
 
           lines: {
             create: stockLevels.map((stock) => ({
-              
+
               productId: stock.productId,
 
               systemQty: stock.quantity,
@@ -101,6 +101,11 @@ async updateLine(
   countedQty: number,
   justification?: string,
 ) {
+  if (!Number.isInteger(countedQty) || countedQty < 0) {
+    throw new BadRequestException(
+      'Counted quantity must be a nonnegative integer',
+    );
+  }
 
   const line =
     await this.prisma.inventoryCountLine.findUnique({
@@ -143,7 +148,7 @@ async updateLine(
   });
 
 }
-async validate(id: number) {
+async validate(id: number, createdById: number) {
 
   const count =
     await this.prisma.inventoryCount.findUnique({
@@ -205,7 +210,7 @@ async validate(id: number) {
             type:"CORRECTION",
 
             quantity:
-              Math.abs(line.discrepancy),
+              line.discrepancy,
 
             reference:
               `Inventory count #${id}`,
@@ -220,6 +225,8 @@ async validate(id: number) {
 
             warehouseId:
               count.warehouseId,
+
+            createdById,
 
           },
 

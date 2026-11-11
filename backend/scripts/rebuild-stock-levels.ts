@@ -3,7 +3,7 @@ import { PrismaClient, StockMovementType } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function rebuildStockLevels() {
-  
+
 
   await prisma.stockLevel.deleteMany();
 
@@ -54,7 +54,7 @@ async function rebuildStockLevels() {
     });
   }
 
-  
+
 
   await prisma.$disconnect();
 }

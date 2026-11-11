@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { UpdateCountLineDto } from './dto/update-count-line.dto';
@@ -15,6 +16,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guards';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { CreateInventoryCountDto } from './dto/create-inventory-count.dto';
+
+type AuthenticatedRequest = {
+  user: {
+    userId: string | number;
+  };
+};
 
 
 @ApiBearerAuth('access-token')
@@ -72,8 +79,12 @@ updateLine(
 )
 validate(
   @Param('id') id: string,
+  @Req() request: AuthenticatedRequest,
 ) {
-  return this.inventoryCountsService.validate(+id);
+  return this.inventoryCountsService.validate(
+    +id,
+    Number(request.user.userId),
+  );
 }
 
 }

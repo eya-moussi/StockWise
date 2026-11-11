@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { createE2eApp } from './create-e2e-app';
 
 
 describe('Warehouses API (e2e)', () => {
@@ -19,14 +20,12 @@ describe('Warehouses API (e2e)', () => {
       }).compile();
 
 
-    app = moduleFixture.createNestApplication();
-
-    await app.init();
+    app = await createE2eApp(moduleFixture);
 
 
     const loginResponse =
       await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/api/v1/auth/login')
         .send({
           email: 'ad@test.com',
           password: 'Admin123',
@@ -51,7 +50,7 @@ describe('Warehouses API (e2e)', () => {
 
     const response =
       await request(app.getHttpServer())
-        .get('/warehouses')
+        .get('/api/v1/warehouses')
         .set(
           'Authorization',
           `Bearer ${token}`,
@@ -70,7 +69,7 @@ describe('Warehouses API (e2e)', () => {
 
     const response =
       await request(app.getHttpServer())
-        .post('/warehouses')
+        .post('/api/v1/warehouses')
         .set(
           'Authorization',
           `Bearer ${token}`,

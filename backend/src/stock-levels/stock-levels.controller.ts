@@ -10,6 +10,7 @@ import { RolesGuard } from '../auth/guards/roles.guards';
 import { Roles } from '../auth/decorators/roles.decorators';
 import { ApiBearerAuth } from '@nestjs/swagger';
 
+
 @Controller('stock-levels')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard, RolesGuard)

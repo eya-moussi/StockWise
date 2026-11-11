@@ -22,6 +22,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   role         Role     @relation(fields: [roleId], references: [id])
+  authoredStockMovements StockMovement[] @relation("StockMovementAuthor")
 }
 
 model ProductCategory {
@@ -84,11 +85,15 @@ model StockMovement {
   createdAt         DateTime          @default(now())
   reason            String?
   relatedMovementId Int?
+  createdById       Int?
   location          Location?         @relation(fields: [locationId], references: [id])
   product           Product           @relation(fields: [productId], references: [id])
   relatedMovement   StockMovement?    @relation("TransferRelation", fields: [relatedMovementId], references: [id])
   linkedMovements   StockMovement[]   @relation("TransferRelation")
   warehouse         Warehouse         @relation(fields: [warehouseId], references: [id])
+  createdBy         User?             @relation("StockMovementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
 }
 
 model StockLevel {

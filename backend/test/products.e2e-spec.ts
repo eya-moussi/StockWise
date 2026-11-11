@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { createE2eApp } from './create-e2e-app';
 
 
 describe('Products API (e2e)', () => {
@@ -19,14 +20,12 @@ describe('Products API (e2e)', () => {
       }).compile();
 
 
-    app = moduleFixture.createNestApplication();
-
-    await app.init();
+    app = await createE2eApp(moduleFixture);
 
 
     // Login to get JWT
     const loginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({
         email: 'ad@test.com',
         password: 'Admin123',
@@ -50,7 +49,7 @@ describe('Products API (e2e)', () => {
   it('GET /products should return products', async () => {
 
     const response = await request(app.getHttpServer())
-      .get('/products')
+      .get('/api/v1/products')
       .set(
         'Authorization',
         `Bearer ${token}`,
@@ -68,7 +67,7 @@ describe('Products API (e2e)', () => {
   it('POST /products should create product', async () => {
 
     const response = await request(app.getHttpServer())
-      .post('/products')
+      .post('/api/v1/products')
       .set(
         'Authorization',
         `Bearer ${token}`,

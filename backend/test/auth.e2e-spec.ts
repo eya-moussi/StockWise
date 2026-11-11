@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import  request from 'supertest';
 
 import { AppModule } from '../src/app.module';
+import { createE2eApp } from './create-e2e-app';
 
 describe('Auth E2E', () => {
 
@@ -17,9 +18,7 @@ describe('Auth E2E', () => {
       }).compile();
 
 
-    app = moduleFixture.createNestApplication();
-
-    await app.init();
+    app = await createE2eApp(moduleFixture);
 
   });
 
@@ -36,7 +35,7 @@ describe('Auth E2E', () => {
   it('should login with valid credentials', () => {
 
     return request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({
         email: 'ad@test.com',
         password: 'Admin123',
@@ -53,7 +52,7 @@ describe('Auth E2E', () => {
   it('should fail with invalid credentials', () => {
 
     return request(app.getHttpServer())
-      .post('/auth/login')
+      .post('/api/v1/auth/login')
       .send({
         email: 'ad@test.com',
         password: 'wrong',

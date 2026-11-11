@@ -1,398 +1,186 @@
-ERP Management System
+# StockWise
 
-A full-stack ERP management system focused on inventory, warehouse management, stock movements, inventory counting, role-based access control, and audit logging.
+Plateforme web de gestion de stock avec réapprovisionnement prédictif.
 
-Live Demo
+A full-stack inventory management system covering products, warehouses, stock movements, inventory counting, role-based access control, and audit logging.
 
-Frontend:
+## Live Demo
 
-https://erp-project-ll-ec69.vercel.app
+- Frontend: https://erp-project-ll-ec69.vercel.app
+- Backend API: https://erp-api-ewd5.onrender.com
+- Swagger API docs: https://erp-api-ewd5.onrender.com/api/docs
 
-Backend API:
+## Tech Stack
 
-https://erp-api-ewd5.onrender.com
+**Backend**
+- NestJS
+- Prisma ORM
+- PostgreSQL
+- JWT / Passport
+- Argon2
+- Swagger
+- Jest
+- Docker
 
-Swagger API Documentation:
+**Frontend**
+- Next.js (App Router)
+- React
+- TypeScript
+- Tailwind CSS
+- TanStack Query
+- Axios
 
-https://erp-api-ewd5.onrender.com/api/docs
+**Deployment**
+- Vercel (frontend)
+- Render (backend API)
+- Neon PostgreSQL (production database)
+- Docker (local/containerized deployment)
 
-Tech Stack
-Backend
-NestJS
-Prisma ORM
-PostgreSQL
-JWT
-Passport
-Argon2
-Swagger
-Jest
-Docker
-Frontend
-Next.js
-React
-TypeScript
-Tailwind CSS
-Axios
-React Hook Form
-Zod
-Deployment
-Vercel for the frontend
-Render for the backend API
-Neon PostgreSQL for the production database
-Docker for local/containerized deployment
-Architecture
-Users
-  |
-  v
-Vercel
-Next.js Frontend
-  |
- HTTPS
-  |
-  v
-Render
-NestJS API
-  |
-  v
-Neon
-PostgreSQL
-Main Features
-Authentication
-User registration
-User login
-JWT authentication
-Password hashing with Argon2
-Protected API routes
-Role-Based Access Control
+## Main Features
 
-The system supports three roles:
+### Authentication
+- User registration
+- User login
+- JWT authentication
+- Password hashing with Argon2
+- Protected API routes and frontend routes
 
-ADMIN
-STOCK_MANAGER
-VIEWER
+### Role-Based Access Control
+Three roles are supported: `ADMIN`, `STOCK_MANAGER`, `VIEWER`. Protected operations are controlled through role-based authorization guards.
 
-Protected operations are controlled through role-based authorization.
+### Product Management
+- Product categories
+- Product creation and listing
+- Product references
+- Minimum stock thresholds
+- Category association
 
-Product Management
-Product categories
-Product creation
-Product listing
-Product references
-Minimum stock thresholds
-Category association
-Warehouse Management
+### Warehouse Management
+Warehouse types: `PRINCIPAL`, `PRODUCTION`, `DISTRIBUTION`, `RETOUR`, `REBUT`. Warehouses can contain storage locations.
 
-The system supports different warehouse types:
+### Stock Management
+Stock movement types: `IN`, `OUT`, `TRANSFER`, `RETURN_CLIENT`, `RETURN_SUPPLIER`, `CORRECTION`.
 
-PRINCIPAL
-PRODUCTION
-DISTRIBUTION
-RETOUR
-REBUT
+Stock levels are maintained per product and warehouse using atomic, concurrency-safe updates. Movements record the authenticated author (`createdBy`).
 
-Warehouses can contain storage locations.
+### Inventory Counts
+- Inventory count creation
+- Count lines with system quantity and counted quantity
+- Discrepancy calculation and justification
+- Validation workflow (records a correction movement)
 
-Stock Management
+### Audit Logs
+The backend records API activity and important operations: HTTP action, entity, entity ID, user, user email, and timestamp. A frontend audit-log viewer is included.
 
-The backend supports the following stock movement types:
+### Low Stock Alerts
+Products with stock below their configured minimum threshold are surfaced as low-stock alerts on the dashboard.
 
-IN
-OUT
-TRANSFER
-RETURN_CLIENT
-RETURN_SUPPLIER
-CORRECTION
+## Project Structure
 
-Stock levels are maintained per product and warehouse.
-
-Inventory Counts
-
-Inventory counting supports:
-
-Inventory count creation
-Count lines
-System quantity
-Counted quantity
-Discrepancy calculation
-Justification
-Validation workflow
-Low Stock Alerts
-
-Products with stock below their configured minimum stock threshold are displayed as low-stock alerts on the dashboard.
-
-Audit Logs
-
-The backend records API activity and important operations, including:
-
-HTTP action
-Entity
-Entity ID
-User
-User email
-Timestamp
-Project Structure
-erp-project/
+```
+StockWise/
 ├── backend/
 │   ├── prisma/
 │   │   ├── schema.prisma
 │   │   └── seed.ts
-│   ├── src/
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── products/
-│   │   ├── product-categories/
-│   │   ├── warehouses/
-│   │   ├── locations/
-│   │   ├── stock-movements/
-│   │   ├── stock-levels/
-│   │   ├── inventory-counts/
-│   │   ├── audit-logs/
-│   │   └── common/
-│   └── package.json
+│   └── src/
+│       ├── auth/
+│       ├── users/
+│       ├── products/
+│       ├── product-categories/
+│       ├── warehouses/
+│       ├── locations/
+│       ├── stock-movements/
+│       ├── stock-levels/
+│       ├── inventory-counts/
+│       ├── audit-logs/
+│       └── common/
 │
 ├── frontend/
 │   ├── app/
-│   │   ├── dashboard/
-│   │   ├── login/
-│   │   ├── products/
-│   │   ├── warehouses/
-│   │   ├── stock-movements/
-│   │   ├── inventory-counts/
-│   │   └── audit-logs/
+│   │   ├── (dashboard)/
+│   │   └── login/
 │   ├── components/
-│   └── package.json
-│
-├── doc/
-│   ├── er-diagram.md
-│   ├── er-diagram.mmd
-│   └── er-diagram.png
+│   └── services/
 │
 ├── docker-compose.yml
 └── README.md
-Database
+```
 
-The application uses PostgreSQL with Prisma ORM.
+## Database
 
-Main entities include:
+The application uses PostgreSQL with Prisma ORM. Main entities: `Role`, `User`, `ProductCategory`, `Product`, `Warehouse`, `Location`, `StockMovement`, `StockLevel`, `InventoryCount`, `InventoryCountLine`, `AuditLog`.
 
-Role
-User
-ProductCategory
-Product
-Warehouse
-Location
-StockMovement
-StockLevel
-InventoryCount
-InventoryCountLine
-AuditLog
+The schema is at `backend/prisma/schema.prisma`.
 
-The database schema is available at:
+## Local Development
 
-backend/prisma/schema.prisma
-ER Diagram
+### Requirements
+- Node.js
+- npm
+- PostgreSQL or Docker
+- Git
 
-The generated ER diagram is available at:
+### Backend
 
-doc/er-diagram.png
-
-
-
-
-Local Development
-Requirements
-Node.js
-npm
-PostgreSQL or Docker
-Git
-Backend
+```bash
 cd backend
 npm install
+```
 
-Create a .env file:
+Create a `.env` file (see `backend/.env.example`):
 
+```
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/mip_erp"
 JWT_SECRET="your-development-secret"
+SEED_ADMIN_PASSWORD="..."
+SEED_STOCK_MANAGER_PASSWORD="..."
+SEED_VIEWER_PASSWORD="..."
+```
 
-Generate the Prisma client:
-
+```bash
 npx prisma generate
-
-Run database migrations:
-
 npx prisma migrate dev
-
-Seed the database:
-
 npx prisma db seed
-
-Start the backend:
-
 npm run start:dev
+```
 
-The API will be available at:
+- API: http://localhost:3001
+- Swagger: http://localhost:3001/api/docs
 
-http://localhost:3001
+### Frontend
 
-Swagger documentation:
-
-http://localhost:3001/api/docs
-Frontend
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
-The frontend will be available at:
+Frontend: http://localhost:3000
 
-http://localhost:3000
-Docker
+Set `NEXT_PUBLIC_API_BASE_URL` if the API is not on `http://localhost:3001/api/v1`.
 
-The project includes Docker configuration for running the application with PostgreSQL.
+## Docker
 
-Build and start the containers:
-
+```bash
 docker compose up --build
-
-Stop the containers:
-
 docker compose down
-Seed Data
+```
 
-The project includes a Prisma seed script:
+## Seed Data
 
-backend/prisma/seed.ts
+`backend/prisma/seed.ts` creates demo data: roles, demo users, product categories, products, warehouses, locations, stock movements, stock levels, inventory counts, and audit data.
 
-The seed creates realistic demo data including:
+The seed reads demo passwords from the `SEED_ADMIN_PASSWORD`, `SEED_STOCK_MANAGER_PASSWORD`, and `SEED_VIEWER_PASSWORD` environment variables and fails if any are missing. Do not run the seed against production unless the production dataset is intentionally being updated.
 
-Roles
-Demo users
-Product categories
-Products
-Warehouses
-Locations
-Stock movements
-Stock levels
-Inventory counts
-Audit data
+## CI/CD
 
-Run the seed against a development database:
+The project includes a GitHub Actions CI pipeline (`.github/workflows/ci.yml`) that verifies backend install/lint/tests/e2e and frontend install/build. Production deployment: GitHub → Vercel (frontend) and GitHub → Render → Neon (backend/database).
 
-cd backend
-npx prisma db seed
+## API Documentation
 
-Do not run the seed against the production database unless the production dataset is intentionally being updated.
+Swagger is available at `/api/docs`. Endpoints cover authentication, users, products, product categories, warehouses, locations, stock movements, stock levels, inventory counts, and audit logs.
 
-Demo Accounts
-Administrator
-Email: admin@erp.local
-Password: ChangeMe123!
-Stock Manager
-Email: stock.manager@erp.local
-Password: StockManager123!
-Viewer
-Email: viewer@erp.local
-Password: Viewer123!
-CI/CD
+## Version
 
-The project includes a GitHub Actions CI pipeline.
-
-The pipeline verifies:
-
-Backend installation
-Backend linting
-Backend unit tests
-Backend end-to-end tests
-Frontend installation
-Frontend tests
-Frontend build
-
-Production deployment uses:
-
-GitHub
-   |
-   +----> Vercel
-   |      Frontend
-   |
-   +----> Render
-          Backend API
-             |
-             v
-           Neon
-        PostgreSQL
-Production Verification
-
-The deployed v1 application was tested in production.
-
-Verified:
-
-Authentication
-Dashboard
-Product listing
-Product creation
-Warehouse listing
-Stock movement API
-Inventory count listing
-Audit log viewer
-Low-stock alerts
-Production database connectivity
-Demo Dataset
-
-The production demo dataset contains realistic inventory data including:
-
-Steel Sheet 2mm
-Industrial Motor 5kW
-Cardboard Box 40x30
-Hydraulic Oil 20L
-Industrial Safety Gloves
-
-The dashboard demonstrates:
-
-Current stock levels
-Warehouse stock
-Low-stock alerts
-Stock movement activity
-API Documentation
-
-Swagger is available at:
-
-https://erp-api-ewd5.onrender.com/api/docs
-
-The API includes endpoints for:
-
-Authentication
-Users
-Products
-Product categories
-Warehouses
-Locations
-Stock movements
-Stock levels
-Inventory counts
-Audit logs
-Current Frontend Status
-
-The main production frontend pages are available for:
-
-Login
-Dashboard
-Products
-Product creation
-Warehouses
-Stock movements
-Inventory counts
-Audit logs
-
-The Stock Movements and Inventory Counts backend workflows are implemented. Some dedicated frontend management screens remain planned for a future iteration.
-
-Version
 v1.0.0
-Project Status
-
-The ERP Management System v1 is deployed, tested, and documented as a working full-stack application.
-
-Component	Deployment
-Frontend	Vercel
-Backend	Render
-Database	Neon PostgreSQL
-Status	Deployed
-Version	v1.0.0

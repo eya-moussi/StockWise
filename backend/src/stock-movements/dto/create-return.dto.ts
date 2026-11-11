@@ -25,10 +25,12 @@ export class CreateReturnDto {
 
 
   @IsInt()
+  @IsPositive()
   productId!: number;
 
 
   @IsInt()
+  @IsPositive()
   warehouseId!: number;
 
 
