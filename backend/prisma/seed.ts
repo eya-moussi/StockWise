@@ -226,49 +226,69 @@ async function main() {
   // WAREHOUSES
   // ============================================================
 
-  const principal = await prisma.warehouse.findFirst({
-    where: {
+  const warehouseDefinitions = [
+    {
+      name: 'Principal Warehouse',
       type: WarehouseType.PRINCIPAL,
+      description: 'Main storage warehouse',
     },
-    orderBy: {
-      id: 'asc',
+    {
+      name: 'Production Warehouse',
+      type: WarehouseType.PRODUCTION,
+      description: 'Production storage warehouse',
     },
+    {
+      name: 'Distribution Warehouse',
+      type: WarehouseType.DISTRIBUTION,
+      description: 'Distribution storage warehouse',
+    },
+    {
+      name: 'Returns Warehouse',
+      type: WarehouseType.RETOUR,
+      description: 'Returned products warehouse',
+    },
+    {
+      name: 'Scrap Warehouse',
+      type: WarehouseType.REBUT,
+      description: 'Scrapped products warehouse',
+    },
+  ];
+
+     for (const warehouseData of warehouseDefinitions) {
+           const existing = await prisma.warehouse.findFirst({
+      where: { type: warehouseData.type },
+    });
+
+    if (!existing) {
+      await prisma.warehouse.create({
+        data: warehouseData,
+      });
+    }
+  }
+
+  const principal = await prisma.warehouse.findFirst({
+    where: { type: WarehouseType.PRINCIPAL },
+    orderBy: { id: 'asc' },
   });
 
   const production = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.PRODUCTION,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.PRODUCTION },
+    orderBy: { id: 'asc' },
   });
 
   const distribution = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.DISTRIBUTION,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.DISTRIBUTION },
+    orderBy: { id: 'asc' },
   });
 
   const retour = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.RETOUR,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.RETOUR },
+    orderBy: { id: 'asc' },
   });
 
   const rebut = await prisma.warehouse.findFirst({
-    where: {
-      type: WarehouseType.REBUT,
-    },
-    orderBy: {
-      id: 'asc',
-    },
+    where: { type: WarehouseType.REBUT },
+    orderBy: { id: 'asc' },
   });
 
   if (!principal || !production || !distribution || !retour || !rebut) {
