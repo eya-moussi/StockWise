@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  roleId       Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  role         Role     @relation(fields: [roleId], references: [id])
+}
+
+model ProductCategory {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id                  Int                  @id @default(autoincrement())
+  reference           String               @unique
+  name                String
+  minStock            Int                  @default(0)
+  categoryId          Int
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  inventoryCountLines InventoryCountLine[]
+  category            ProductCategory      @relation(fields: [categoryId], references: [id])
+  stockLevels         StockLevel[]
+  stockMovements      StockMovement[]
+}
+
+model Warehouse {
+  id              Int              @id @default(autoincrement())
+  name            String
+  type            WarehouseType
+  description     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  inventoryCounts InventoryCount[]
+  locations       Location[]
+  stockLevels     StockLevel[]
+  stockMovements  StockMovement[]
+}
+
+model Location {
+  id             Int             @id @default(autoincrement())
+  code           String
+  name           String
+  description    String?
+  warehouseId    Int
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  warehouse      Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  stockMovements StockMovement[]
+
+  @@unique([warehouseId, code])
+}
+
+model StockMovement {
+  id                Int               @id @default(autoincrement())
+  type              StockMovementType
+  quantity          Int
+  reference         String?
+  productId         Int
+  warehouseId       Int
+  locationId        Int?
+  createdAt         DateTime          @default(now())
+  reason            String?
+  relatedMovementId Int?
+  location          Location?         @relation(fields: [locationId], references: [id])
+  product           Product           @relation(fields: [productId], references: [id])
+  relatedMovement   StockMovement?    @relation("TransferRelation", fields: [relatedMovementId], references: [id])
+  linkedMovements   StockMovement[]   @relation("TransferRelation")
+  warehouse         Warehouse         @relation(fields: [warehouseId], references: [id])
+}
+
+model StockLevel {
+  id          Int       @id @default(autoincrement())
+  productId   Int
+  warehouseId Int
+  quantity    Int       @default(0)
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([productId, warehouseId])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  entity    String
+  entityId  Int?
+  userId    Int?
+  userEmail String?
+  createdAt DateTime @default(now())
+}
+
+model InventoryCount {
+  id          Int                  @id @default(autoincrement())
+  warehouseId Int
+  status      String               @default("DRAFT")
+  createdAt   DateTime             @default(now())
+  validatedAt DateTime?
+  warehouse   Warehouse            @relation(fields: [warehouseId], references: [id])
+  lines       InventoryCountLine[]
+}
+
+model InventoryCountLine {
+  id               Int            @id @default(autoincrement())
+  inventoryCountId Int
+  productId        Int
+  systemQty        Int
+  countedQty       Int
+  discrepancy      Int
+  justification    String?
+  inventoryCount   InventoryCount @relation(fields: [inventoryCountId], references: [id])
+  product          Product        @relation(fields: [productId], references: [id])
+}
+
+enum RoleName {
+  ADMIN
+  STOCK_MANAGER
+  VIEWER
+}
+
+enum WarehouseType {
+  PRINCIPAL
+  PRODUCTION
+  DISTRIBUTION
+  RETOUR
+  REBUT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  TRANSFER
+  RETURN_CLIENT
+  RETURN_SUPPLIER
+  CORRECTION
+}
