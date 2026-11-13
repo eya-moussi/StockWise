@@ -1,14 +1,58 @@
-
 import axios from "axios";
 
 const api = axios.create({
   baseURL:
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "http://localhost:3002/api/v1",
-
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/api/v1",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.log("401 Unauthorized:", error.response.data);
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;
+
+type ApiData = Record<string, unknown>;
+
+export async function getInventoryCounts() {
+  const response = await api.get("/inventory-counts");
+  return response.data;
+}
+
+export async function getInventoryCount(id: number) {
+  const response = await api.get(`/inventory-counts/${id}`);
+  return response.data;
+}
+
+export async function createInventoryCount(data: ApiData) {
+  const response = await api.post("/inventory-counts", data);
+  return response.data;
+}
+
+export async function updateCountLine(lineId: number, data: ApiData) {
+  const response = await api.patch(`/inventory-counts/line/${lineId}`, data);
+  return response.data;
+}
+
+export async function validateInventoryCount(id: number) {
+  const response = await api.patch(`/inventory-counts/${id}/validate`);
+  return response.data;
+}
