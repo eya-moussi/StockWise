@@ -56,3 +56,26 @@ export async function validateInventoryCount(id: number) {
   const response = await api.patch(`/inventory-counts/${id}/validate`);
   return response.data;
 }
+
+
+export async function getDashboardProducts() {
+  const response = await api.get("/products", {
+    params: { page: 1, limit: 1 },
+  });
+  return response.data;
+}
+
+export async function getDashboardCategories() {
+  const response = await api.get("/product-categories");
+  return response.data;
+}
+
+export async function getDashboardWarehouses() {
+  const response = await api.get("/warehouses");
+  return response.data;
+}
+
+export async function getDashboardMovements() {
+  const response = await api.get("/stock-movements");
+  return response.data;
+}
