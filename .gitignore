@@ -1,11 +1,27 @@
-# compiled output
+﻿# Python
+ai-service/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+
+# Node.js
+node_modules/
+.next/
+dist/
+build/
+coverage/
 */dist
 */node_modules
 */build
-/venv
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -13,15 +29,21 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# OS
-.DS_Store
-
-# Tests
-/coverage
-/.nyc_output
+# Runtime and temporary files
+.temp/
+.tmp/
+pids/
+*.pid
+*.seed
+*.pid.lock
 
 # IDEs and editors
-/.idea
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
 .project
 .classpath
 .c9/
@@ -29,31 +51,15 @@ lerna-debug.log*
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# Operating system
+.DS_Store
+Thumbs.db
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+# Test reports
+.nyc_output/
 
-# temp directory
-.temp
-.tmp
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
+# Documentation
 /doc
 
-# Diagnostic reports (https://nodejs.org/api/report.html)
+# Diagnostic reports
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
