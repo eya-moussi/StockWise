@@ -46,7 +46,7 @@ const pageInfo: Record<string, { title: string; description: string }> = {
 const roleLabels: Record<UserRole, string> = {
   ADMIN: "Administrateur",
   STOCK_MANAGER: "Gestionnaire de stock",
-  VIEWER: "Opérateur de stock",
+  VIEWER: "Consultation seule",
 };
 
 export default function Header() {
