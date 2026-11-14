@@ -1,8 +1,16 @@
 
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, UserRound } from "lucide-react";
+import { Bell, UserRound, LogOut } from "lucide-react";
+import {
+  getUserRoleSnapshot,
+  getServerUserRoleSnapshot,
+  subscribeToAuthChanges,
+  logout,
+  UserRole,
+} from "@/lib/auth";
 
 const pageInfo: Record<string, { title: string; description: string }> = {
   "/dashboard": {
@@ -35,8 +43,20 @@ const pageInfo: Record<string, { title: string; description: string }> = {
   },
 };
 
+const roleLabels: Record<UserRole, string> = {
+  ADMIN: "Administrateur",
+  STOCK_MANAGER: "Gestionnaire de stock",
+  VIEWER: "Opérateur de stock",
+};
+
 export default function Header() {
   const pathname = usePathname();
+
+  const role = useSyncExternalStore(
+    subscribeToAuthChanges,
+    getUserRoleSnapshot,
+    getServerUserRoleSnapshot
+  );
 
   const currentPage =
     pageInfo[pathname] ??
@@ -71,31 +91,40 @@ export default function Header() {
           className="relative rounded-xl p-2 text-[#6b7194] transition-colors hover:bg-[#f3f4fb] hover:text-[#6d5ef0]"
         >
           <Bell size={21} />
-
           <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#6d5ef0]" />
         </button>
 
-        {/* Profil */}
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-[#f3f4fb]"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eeedfc] text-[#6d5ef0]">
-            <UserRound size={21} />
+        {/* Profil et déconnexion */}
+        <div className="flex items-center gap-3">
+
+          {/* Profil */}
+          <div className="flex items-center gap-3 rounded-xl px-2 py-1.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eeedfc] text-[#6d5ef0]">
+              <UserRound size={21} />
+            </div>
+
+            <div className="hidden text-left sm:block">
+              <p className="text-sm font-semibold text-[#0f1535]">
+                Bienvenue
+              </p>
+
+              <p className="text-xs text-[#6b7194]">
+                {role ? roleLabels[role] : "Utilisateur"}
+              </p>
+            </div>
           </div>
 
-          <div className="hidden text-left sm:block">
-            <p className="text-sm font-semibold text-[#0f1535]">
-              Utilisateur
-            </p>
-            <p className="text-xs text-[#6b7194]">
-              Administrateur
-            </p>
-          </div>
+          {/* Logout */}
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-2 rounded-xl border border-[#e9ebf5] px-3 py-2 text-sm font-medium text-[#6b7194] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          >
+            <LogOut size={17} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
 
-          <ChevronDown size={16} className="text-[#6b7194]" />
-        </button>
-
+        </div>
       </div>
     </header>
   );

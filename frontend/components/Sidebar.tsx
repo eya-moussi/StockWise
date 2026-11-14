@@ -2,58 +2,88 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import {
+  getUserRoleSnapshot,
+  getServerUserRoleSnapshot,
+  subscribeToAuthChanges,
+  UserRole,
+} from "@/lib/auth";
 import {
   LayoutDashboard,
   Package,
   Tags,
+  Boxes,
   Warehouse,
   ArrowLeftRight,
-  Boxes,
   ClipboardList,
   ScrollText,
+  type LucideIcon,
 } from "lucide-react";
 
-const navigation = [
+const navigation: {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  roles: UserRole[];
+}[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Produits",
     href: "/products",
     icon: Package,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Catégories",
     href: "/categories",
     icon: Tags,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Entrepôts",
     href: "/warehouses",
     icon: Warehouse,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Mouvements de stock",
     href: "/stock-movements",
     icon: ArrowLeftRight,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Inventaires",
     href: "/inventory-counts",
     icon: ClipboardList,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
     label: "Journaux d'audit",
     href: "/audit-logs",
     icon: ScrollText,
+    roles: ["ADMIN"],
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  const role = useSyncExternalStore(
+    subscribeToAuthChanges,
+    getUserRoleSnapshot,
+    getServerUserRoleSnapshot
+  );
+
+  const visibleNavigation = navigation.filter(
+    (item) => role !== null && item.roles.includes(role)
+  );
 
   return (
     <aside className="flex min-h-screen w-64 shrink-0 flex-col border-r border-[#e9ebf5] bg-[#f7f8fd] px-4 py-6">
@@ -81,7 +111,7 @@ export default function Sidebar() {
         </p>
 
         <div className="space-y-1">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" &&
