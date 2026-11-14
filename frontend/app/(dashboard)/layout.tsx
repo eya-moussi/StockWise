@@ -1,6 +1,6 @@
-
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function DashboardLayout({
   children,
@@ -8,21 +8,23 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex min-h-screen bg-[#f3f4fb]">
+    <ProtectedRoute>
+      <div className="flex min-h-screen bg-[#f3f4fb]">
 
-      {/* Navigation latérale */}
-      <Sidebar />
+        {/* Navigation latérale */}
+        <Sidebar />
 
-      {/* Contenu principal */}
-      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Contenu principal */}
+        <div className="flex min-w-0 flex-1 flex-col">
 
-        <Header />
+          <Header />
 
-        <main className="flex-1 p-8">
-          {children}
-        </main>
+          <main className="flex-1 p-8">
+            {children}
+          </main>
 
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

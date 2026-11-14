@@ -38,6 +38,7 @@ export class InventoryCountsController {
 
 
   @Post()
+  @Roles('ADMIN', 'STOCK_MANAGER')
   create(
     @Body() dto: CreateInventoryCountDto,
   ) {
@@ -46,18 +47,21 @@ export class InventoryCountsController {
 
 
   @Get()
+  @Roles('ADMIN', 'STOCK_MANAGER', 'VIEWER')
   findAll() {
     return this.inventoryCountsService.findAll();
   }
 
 
   @Get(':id')
+  @Roles('ADMIN', 'STOCK_MANAGER', 'VIEWER')
   findOne(
     @Param('id') id: string,
   ) {
     return this.inventoryCountsService.findOne(+id);
   }
  @Patch('line/:lineId')
+ @Roles('ADMIN', 'STOCK_MANAGER')
 updateLine(
   @Param('lineId') lineId: string,
   @Body() dto: UpdateCountLineDto,

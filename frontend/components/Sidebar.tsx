@@ -10,6 +10,8 @@ import {
   Warehouse,
   ArrowLeftRight,
   Boxes,
+  ClipboardList,
+  ScrollText,
 } from "lucide-react";
 
 const navigation = [
@@ -37,6 +39,16 @@ const navigation = [
     label: "Mouvements de stock",
     href: "/stock-movements",
     icon: ArrowLeftRight,
+  },
+  {
+    label: "Inventaires",
+    href: "/inventory-counts",
+    icon: ClipboardList,
+  },
+  {
+    label: "Journaux d'audit",
+    href: "/audit-logs",
+    icon: ScrollText,
   },
 ];
 

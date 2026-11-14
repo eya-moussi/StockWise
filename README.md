@@ -1,2 +1,4 @@
 # StockWise
-Plateforme web de gestion de stock avec réapprovisionnement prédictif
+
+Plateforme web de gestion de stock avec réapprovisionnement prédictif.
+
