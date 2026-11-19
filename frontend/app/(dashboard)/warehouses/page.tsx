@@ -18,6 +18,7 @@ import {
   Warehouse,
   WarehouseType,
 } from "@/services/warehouses";
+import RoleGate from "@/components/RoleGate";
 
 type WarehouseForm = {
   name: string;
@@ -193,6 +194,7 @@ export default function WarehousesPage() {
           </p>
         </div>
 
+        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
         <Link
           href="/warehouses/create"
           className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
@@ -200,9 +202,11 @@ export default function WarehousesPage() {
           <Plus size={18} />
           Ajouter un entrepôt
         </Link>
+        </RoleGate>
       </div>
 
       {/* Formulaire de modification */}
+      <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
       {editingWarehouse && (
         <form
           onSubmit={handleUpdate}
@@ -304,6 +308,7 @@ export default function WarehousesPage() {
           </div>
         </form>
       )}
+      </RoleGate>
 
       {/* Recherche */}
       <div className="mb-5 flex items-center gap-3 rounded-xl border border-[#e9ebf5] bg-white px-4 py-3 shadow-sm sm:max-w-md">
@@ -377,6 +382,7 @@ export default function WarehousesPage() {
 
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
+                        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
                         <button
                           type="button"
                           onClick={() => openEdit(warehouse)}
@@ -385,7 +391,9 @@ export default function WarehousesPage() {
                         >
                           <Pencil size={17} />
                         </button>
+                        </RoleGate>
 
+                        <RoleGate allowedRoles={["ADMIN"]}>
                         <button
                           type="button"
                           disabled={deletingId === warehouse.id}
@@ -395,6 +403,7 @@ export default function WarehousesPage() {
                         >
                           <Trash2 size={17} />
                         </button>
+                        </RoleGate>
                       </div>
                     </td>
                   </tr>

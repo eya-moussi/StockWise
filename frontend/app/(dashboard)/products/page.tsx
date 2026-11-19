@@ -7,6 +7,7 @@ import { Search, Plus, Pencil, Trash2, X, Package } from "lucide-react";
 
 import { productsService, Product } from "@/services/products";
 import { categoriesService } from "@/services/categories";
+import RoleGate from "@/components/RoleGate";
 
 type ProductForm = {
   reference: string;
@@ -187,16 +188,19 @@ export default function ProductsPage() {
           </p>
         </div>
 
-        <Link
-          href="/products/create"
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
-        >
-          <Plus size={18} />
-          Ajouter un produit
-        </Link>
+        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+          <Link
+            href="/products/create"
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
+          >
+            <Plus size={18} />
+            Ajouter un produit
+          </Link>
+        </RoleGate>
       </div>
 
       {/* Formulaire de modification */}
+      <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
       {editingProduct && (
         <form
           onSubmit={handleUpdate}
@@ -314,6 +318,7 @@ export default function ProductsPage() {
           </div>
         </form>
       )}
+      </RoleGate>
 
       {/* Recherche */}
       <div className="mb-5 flex items-center gap-3 rounded-xl border border-[#e9ebf5] bg-white px-4 py-3 shadow-sm sm:max-w-md">
@@ -383,24 +388,28 @@ export default function ProductsPage() {
 
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(product)}
-                          title="Modifier"
-                          className="rounded-lg p-2 text-[#6d5ef0] transition hover:bg-[#f0efff]"
-                        >
-                          <Pencil size={17} />
-                        </button>
+                        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(product)}
+                            title="Modifier"
+                            className="rounded-lg p-2 text-[#6d5ef0] transition hover:bg-[#f0efff]"
+                          >
+                            <Pencil size={17} />
+                          </button>
+                        </RoleGate>
 
-                        <button
-                          type="button"
-                          disabled={deletingId === product.id}
-                          onClick={() => handleDelete(product)}
-                          title="Supprimer"
-                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:opacity-40"
-                        >
-                          <Trash2 size={17} />
-                        </button>
+                        <RoleGate allowedRoles={["ADMIN"]}>
+                          <button
+                            type="button"
+                            disabled={deletingId === product.id}
+                            onClick={() => handleDelete(product)}
+                            title="Supprimer"
+                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:opacity-40"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </RoleGate>
                       </div>
                     </td>
                   </tr>

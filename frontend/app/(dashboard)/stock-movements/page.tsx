@@ -1,6 +1,8 @@
 
 "use client";
 
+import RoleGate from "@/components/RoleGate";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -126,29 +128,35 @@ export default function StockMovementsPage() {
   </div>
 
   <div className="flex flex-wrap gap-3">
-    <Link
+    <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+<Link
       href="/stock-movements/create"
       className="inline-flex items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
     >
       <Plus size={18} />
       Nouveau mouvement
     </Link>
+</RoleGate>
 
-    <Link
+    <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+<Link
       href="/stock-movements/transfer"
       className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
     >
       <ArrowLeftRight size={18} />
       Transfert
     </Link>
+</RoleGate>
 
-    <Link
+    <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+<Link
       href="/stock-movements/return"
       className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700 transition hover:bg-orange-100"
     >
       <Truck size={18} />
       Retour
     </Link>
+</RoleGate>
   </div>
 </div>
 

@@ -16,6 +16,7 @@ import {
   categoriesService,
   Category,
 } from "@/services/categories";
+import RoleGate from "@/components/RoleGate";
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
@@ -150,15 +151,18 @@ export default function CategoriesPage() {
           </p>
         </div>
 
-        <Link
-          href="/categories/create"
-          className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
-        >
-          <Plus size={18} />
-          Ajouter une catégorie
-        </Link>
+        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+          <Link
+            href="/categories/create"
+            className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
+          >
+            <Plus size={18} />
+            Ajouter une catégorie
+          </Link>
+        </RoleGate>
       </div>
 
+      <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
       {editingCategory && (
         <form
           onSubmit={handleUpdate}
@@ -224,6 +228,7 @@ export default function CategoriesPage() {
           </div>
         </form>
       )}
+      </RoleGate>
 
       {pageError && (
         <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -287,24 +292,28 @@ export default function CategoriesPage() {
 
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(category)}
-                          title="Modifier"
-                          className="rounded-lg p-2 text-[#6d5ef0] transition hover:bg-[#f0efff]"
-                        >
-                          <Pencil size={17} />
-                        </button>
+                        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(category)}
+                            title="Modifier"
+                            className="rounded-lg p-2 text-[#6d5ef0] transition hover:bg-[#f0efff]"
+                          >
+                            <Pencil size={17} />
+                          </button>
+                        </RoleGate>
 
-                        <button
-                          type="button"
-                          disabled={deletingId === category.id}
-                          onClick={() => handleDelete(category)}
-                          title="Supprimer"
-                          className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:opacity-40"
-                        >
-                          <Trash2 size={17} />
-                        </button>
+                        <RoleGate allowedRoles={["ADMIN"]}>
+                          <button
+                            type="button"
+                            disabled={deletingId === category.id}
+                            onClick={() => handleDelete(category)}
+                            title="Supprimer"
+                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 disabled:opacity-40"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        </RoleGate>
                       </div>
                     </td>
                   </tr>

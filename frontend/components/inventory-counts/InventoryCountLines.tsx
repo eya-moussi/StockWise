@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updateCountLine } from "@/lib/api";
+import RoleGate from "@/components/RoleGate";
 
 export interface InventoryCountLine {
   id: number;
@@ -44,7 +45,9 @@ function LineItem({
   refresh: () => Promise<void>;
 }) {
   const [qty, setQty] = useState<number | "">(line.countedQty ?? "");
-  const [justification, setJustification] = useState("");
+  const [justification, setJustification] = useState(
+    line.justification ?? ""
+  );
 
   async function save() {
     await updateCountLine(line.id, {
@@ -72,33 +75,53 @@ function LineItem({
         </p>
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <input
-          className={`${inputClass} sm:flex-1`}
-          type="number"
-          value={qty}
-          onChange={(e) => {
-            const value = e.target.value;
-            setQty(value === "" ? "" : Number(value));
-          }}
-          placeholder="Counted quantity"
-        />
+      <RoleGate
+        allowedRoles={["ADMIN", "STOCK_MANAGER"]}
+        fallback={
+          <div className="mt-3 space-y-2 text-sm text-[#6b7194]">
+            <p>
+              Counted quantity:{" "}
+              <span className="font-medium text-[#343b60]">
+                {line.countedQty ?? "Not counted"}
+              </span>
+            </p>
+            <p>
+              Justification:{" "}
+              <span className="font-medium text-[#343b60]">
+                {line.justification || "—"}
+              </span>
+            </p>
+          </div>
+        }
+      >
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            className={`${inputClass} sm:flex-1`}
+            type="number"
+            value={qty}
+            onChange={(e) => {
+              const value = e.target.value;
+              setQty(value === "" ? "" : Number(value));
+            }}
+            placeholder="Counted quantity"
+          />
 
-        <input
-          className={`${inputClass} sm:flex-1`}
-          value={justification}
-          onChange={(e) => setJustification(e.target.value)}
-          placeholder="Justification"
-        />
+          <input
+            className={`${inputClass} sm:flex-1`}
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+            placeholder="Justification"
+          />
 
-        <button
-          type="button"
-          className="rounded-xl bg-[#6d5ef0] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5b4ce0]"
-          onClick={save}
-        >
-          Save
-        </button>
-      </div>
+          <button
+            type="button"
+            className="rounded-xl bg-[#6d5ef0] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#5b4ce0]"
+            onClick={save}
+          >
+            Save
+          </button>
+        </div>
+      </RoleGate>
     </div>
   );
 }
