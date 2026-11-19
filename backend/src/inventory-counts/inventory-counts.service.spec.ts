@@ -18,7 +18,11 @@ function createPrismaMock() {
   };
 
   return {
+    stockLevel: {
+      findMany: jest.fn(),
+    },
     inventoryCount: {
+      create: jest.fn().mockResolvedValue({ id: 10, status: 'DRAFT' }),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -54,6 +58,129 @@ describe('InventoryCountsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('create', () => {
+    it('saves submitted counted quantities with a positive discrepancy', async () => {
+      prisma.stockLevel.findMany.mockResolvedValue([
+        { productId: 1, warehouseId: 2, quantity: 10 },
+        { productId: 2, warehouseId: 2, quantity: 5 },
+      ]);
+
+      await service.create({
+        warehouseId: 2,
+        lines: [{ productId: 1, countedQty: 13 }],
+      });
+
+      expect(prisma.stockLevel.findMany).toHaveBeenCalledWith({
+        where: { warehouseId: 2, productId: { in: [1] } },
+      });
+      expect(prisma.inventoryCount.create).toHaveBeenCalledWith({
+        data: {
+          warehouseId: 2,
+          lines: {
+            create: [
+              {
+                productId: 1,
+                systemQty: 10,
+                countedQty: 13,
+                discrepancy: 3,
+              },
+            ],
+          },
+        },
+        include: { lines: true },
+      });
+    });
+
+    it('stores a negative discrepancy when the counted quantity is below system stock', async () => {
+      prisma.stockLevel.findMany.mockResolvedValue([
+        { productId: 1, warehouseId: 2, quantity: 10 },
+      ]);
+
+      await service.create({
+        warehouseId: 2,
+        lines: [{ productId: 1, countedQty: 7 }],
+      });
+
+      expect(prisma.inventoryCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            lines: {
+              create: [
+                {
+                  productId: 1,
+                  systemQty: 10,
+                  countedQty: 7,
+                  discrepancy: -3,
+                },
+              ],
+            },
+          }),
+        }),
+      );
+    });
+
+    it('keeps a zero discrepancy for a zero counted quantity', async () => {
+      prisma.stockLevel.findMany.mockResolvedValue([
+        { productId: 1, warehouseId: 2, quantity: 0 },
+      ]);
+
+      await service.create({
+        warehouseId: 2,
+        lines: [{ productId: 1, countedQty: 0 }],
+      });
+
+      expect(prisma.inventoryCount.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            lines: {
+              create: [
+                {
+                  productId: 1,
+                  systemQty: 0,
+                  countedQty: 0,
+                  discrepancy: 0,
+                },
+              ],
+            },
+          }),
+        }),
+      );
+    });
+
+    it('rejects duplicate product IDs before querying or writing', async () => {
+      await expect(
+        service.create({
+          warehouseId: 2,
+          lines: [
+            { productId: 1, countedQty: 5 },
+            { productId: 1, countedQty: 6 },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.stockLevel.findMany).not.toHaveBeenCalled();
+      expect(prisma.inventoryCount.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects products without a stock level in the requested warehouse', async () => {
+      prisma.stockLevel.findMany.mockResolvedValue([
+        { productId: 1, warehouseId: 2, quantity: 10 },
+      ]);
+
+      await expect(
+        service.create({
+          warehouseId: 2,
+          lines: [
+            { productId: 1, countedQty: 11 },
+            { productId: 9, countedQty: 3 },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(prisma.inventoryCount.create).not.toHaveBeenCalled();
+    });
   });
 
   it('persists the authenticated author on inventory-count correction movements', async () => {

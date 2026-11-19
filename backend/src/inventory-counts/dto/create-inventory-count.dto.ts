@@ -1,6 +1,8 @@
 import {
+  ArrayNotEmpty,
   IsArray,
   IsInt,
+  Min,
   ValidateNested,
 } from "class-validator";
 
@@ -11,6 +13,7 @@ class InventoryCountLineDto {
   productId!: number;
 
   @IsInt()
+  @Min(0)
   countedQty!: number;
 }
 
@@ -19,6 +22,7 @@ export class CreateInventoryCountDto {
   warehouseId!: number;
 
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => InventoryCountLineDto)
   lines!: InventoryCountLineDto[];

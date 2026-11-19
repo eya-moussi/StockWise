@@ -18,12 +18,36 @@ export class InventoryCountsService {
 
   async create(dto: CreateInventoryCountDto) {
 
+    const productIds = dto.lines.map((line) => line.productId);
+
+    if (new Set(productIds).size !== productIds.length) {
+      throw new BadRequestException(
+        'Duplicate product IDs are not allowed in inventory count lines',
+      );
+    }
+
     const stockLevels = await this.prisma.stockLevel.findMany({
       where: {
         warehouseId: dto.warehouseId,
+        productId: { in: productIds },
       },
     });
 
+    const systemQtyByProductId = new Map<number, number>(
+      stockLevels.map(
+        (stock): [number, number] => [stock.productId, stock.quantity],
+      ),
+    );
+
+    const missingProductIds = productIds.filter(
+      (productId) => !systemQtyByProductId.has(productId),
+    );
+
+    if (missingProductIds.length > 0) {
+      throw new BadRequestException(
+        `No stock level found for product(s) ${missingProductIds.join(', ')} in warehouse ${dto.warehouseId}`,
+      );
+    }
 
     const inventoryCount =
       await this.prisma.inventoryCount.create({
@@ -32,18 +56,21 @@ export class InventoryCountsService {
           warehouseId: dto.warehouseId,
 
           lines: {
-            create: stockLevels.map((stock) => ({
+            create: dto.lines.map((line) => {
 
-              productId: stock.productId,
+              const systemQty = systemQtyByProductId.get(line.productId)!;
 
-              systemQty: stock.quantity,
+              return {
+                productId: line.productId,
 
-              // first count starts equal to system
-              countedQty: stock.quantity,
+                systemQty,
 
-              discrepancy: 0,
+                countedQty: line.countedQty,
 
-            })),
+                discrepancy: line.countedQty - systemQty,
+
+              };
+            }),
           },
         },
 
