@@ -9,7 +9,6 @@ export interface InventoryCountLine {
   inventoryCountId: number;
   productId: number;
   systemQty: number;
-  expectedQty: number;
   countedQty: number | null;
   discrepancy: number;
   justification: string | null;
@@ -70,7 +69,7 @@ function LineItem({
         <p className="text-sm text-[#6b7194]">
           Expected:{" "}
           <span className="font-medium text-[#343b60]">
-            {line.expectedQty}
+            {line.systemQty}
           </span>
         </p>
       </div>
