@@ -139,6 +139,9 @@ async updateLine(
       where: {
         id: lineId,
       },
+      include: {
+        inventoryCount: true,
+      },
     });
 
 
@@ -146,6 +149,12 @@ async updateLine(
     throw new NotFoundException(
   'Inventory count line not found'
 );
+  }
+
+  if (line.inventoryCount.status !== 'DRAFT') {
+    throw new BadRequestException(
+      'Cannot modify lines of a validated inventory count',
+    );
   }
 
 
@@ -206,105 +215,147 @@ async validate(id: number, createdById: number) {
 
 
 
-  for(const line of count.lines){
+  return this.prisma.$transaction(async (tx) => {
 
-    if(
-      line.discrepancy !== 0 &&
-      !line.justification
-    ){
+    const claim =
+      await tx.inventoryCount.updateMany({
+
+        where: {
+          id,
+          status: 'DRAFT',
+        },
+
+        data: {
+          status: 'VALIDATED',
+          validatedAt: new Date(),
+        },
+
+      });
+
+    if (claim.count !== 1) {
       throw new BadRequestException(
-  "Missing justification"
-);
+        'Inventory count already validated',
+      );
     }
 
-  }
+    const freshCount =
+      await tx.inventoryCount.findUnique({
 
+        where: {
+          id,
+        },
 
+        include: {
+          lines: true,
+        },
 
-  return this.prisma.$transaction(async(tx)=>{
+      });
 
+    if (!freshCount) {
+      throw new NotFoundException(
+        'Inventory count not found',
+      );
+    }
 
-    for(const line of count.lines){
+    for (const line of freshCount.lines) {
 
-
-      if(line.discrepancy !== 0){
-
-
-        await tx.stockMovement.create({
-
-          data:{
-
-            type:"CORRECTION",
-
-            quantity:
-              line.discrepancy,
-
-            reference:
-              `Inventory count #${id}`,
-
-            reason:
-              line.justification,
-
-
-            productId:
-              line.productId,
-
-
-            warehouseId:
-              count.warehouseId,
-
-            createdById,
-
-          },
-
-        });
-
-
-
-        await tx.stockLevel.update({
-
-          where:{
-            productId_warehouseId:{
-              productId:
-                line.productId,
-
-              warehouseId:
-                count.warehouseId,
-            },
-          },
-
-
-          data:{
-            quantity:
-              line.countedQty,
-          },
-
-        });
-
-
+      if (
+        line.discrepancy !== 0 &&
+        !line.justification
+      ) {
+        throw new BadRequestException(
+          'Missing justification',
+        );
       }
 
     }
 
+    for (const line of freshCount.lines) {
 
+      if (line.discrepancy === 0) {
+        continue;
+      }
 
-    return tx.inventoryCount.update({
+      if (line.discrepancy > 0) {
+        await tx.stockLevel.upsert({
 
-      where:{
+          where: {
+            productId_warehouseId: {
+              productId: line.productId,
+              warehouseId: freshCount.warehouseId,
+            },
+          },
+
+          update: {
+            quantity: { increment: line.discrepancy },
+          },
+
+          create: {
+            productId: line.productId,
+            warehouseId: freshCount.warehouseId,
+            quantity: line.discrepancy,
+          },
+
+        });
+      } else {
+
+        const amount = -line.discrepancy;
+
+        const adjusted =
+          await tx.stockLevel.updateMany({
+
+            where: {
+              productId: line.productId,
+              warehouseId: freshCount.warehouseId,
+              quantity: { gte: amount },
+            },
+
+            data: {
+              quantity: { decrement: amount },
+            },
+
+          });
+
+        if (adjusted.count !== 1) {
+          throw new BadRequestException('Insufficient stock');
+        }
+      }
+
+      await tx.stockMovement.create({
+
+        data: {
+
+          type: 'CORRECTION',
+
+          quantity: line.discrepancy,
+
+          reference: `Inventory count #${id}`,
+
+          reason: line.justification,
+
+          productId: line.productId,
+
+          warehouseId: freshCount.warehouseId,
+
+          createdById,
+
+        },
+
+      });
+
+    }
+
+    return tx.inventoryCount.findUnique({
+
+      where: {
         id,
       },
 
-      data:{
-        status:"VALIDATED",
-        validatedAt:new Date(),
-      },
-
-      include:{
-        lines:true,
+      include: {
+        lines: true,
       },
 
     });
-
 
   });
 
