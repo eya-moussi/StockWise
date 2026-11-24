@@ -18,7 +18,23 @@ function draftCount(lines: any[], status = 'DRAFT') {
 }
 
 function createPrismaMock() {
+  const inventoryCountLine = {
+    findUnique: jest.fn().mockResolvedValue({
+      id: 1,
+      systemQty: 0,
+      inventoryCountId: 5,
+      inventoryCount: { id: 5, status: 'DRAFT' },
+    }),
+    update: jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve(data),
+    ),
+  };
+
   const transaction = {
+    $queryRaw: jest.fn().mockResolvedValue([
+      { id: 5, status: 'DRAFT' },
+    ]),
+    inventoryCountLine,
     stockMovement: {
       create: jest.fn().mockResolvedValue({ id: 1 }),
     },
@@ -45,16 +61,7 @@ function createPrismaMock() {
       create: jest.fn().mockResolvedValue({ id: 10, status: 'DRAFT' }),
       findUnique: jest.fn(),
     },
-    inventoryCountLine: {
-      findUnique: jest.fn().mockResolvedValue({
-        id: 1,
-        systemQty: 0,
-        inventoryCount: { status: 'DRAFT' },
-      }),
-      update: jest.fn().mockImplementation(({ data }) =>
-        Promise.resolve(data),
-      ),
-    },
+    inventoryCountLine,
     $transaction: jest.fn((callback) => callback(transaction)),
     transaction,
   };
@@ -459,6 +466,154 @@ describe('InventoryCountsService', () => {
     });
   });
 
+  describe('parent-row locking', () => {
+    const lockedLine = (systemQty: number, status = 'DRAFT') => ({
+      id: 1,
+      systemQty,
+      inventoryCountId: 5,
+      inventoryCount: { id: 5, status },
+    });
+
+    const correctionLine = {
+      productId: 1,
+      systemQty: 10,
+      countedQty: 13,
+      discrepancy: 3,
+      justification: 'Verified count',
+    };
+
+    it('rejects updateLine when the locked parent is VALIDATED', async () => {
+      prisma.inventoryCountLine.findUnique.mockResolvedValue(
+        lockedLine(10, 'DRAFT'),
+      );
+      prisma.transaction.$queryRaw.mockResolvedValue([
+        { id: 5, status: 'VALIDATED' },
+      ]);
+
+      await expect(
+        service.updateLine(1, 12, 'Recount'),
+      ).rejects.toMatchObject({
+        message: 'Cannot modify lines of a validated inventory count',
+      });
+
+      expect(prisma.inventoryCountLine.update).not.toHaveBeenCalled();
+    });
+
+    it('computes the discrepancy from the line re-read after the lock', async () => {
+      prisma.inventoryCountLine.findUnique
+        .mockResolvedValueOnce(lockedLine(10))
+        .mockResolvedValueOnce(lockedLine(12));
+
+      await expect(
+        service.updateLine(1, 15, 'Recount'),
+      ).resolves.toMatchObject({
+        countedQty: 15,
+        discrepancy: 3,
+        justification: 'Recount',
+      });
+
+      expect(prisma.inventoryCountLine.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          countedQty: 15,
+          discrepancy: 3,
+          justification: 'Recount',
+        },
+      });
+    });
+
+    it('checks justification using the fresh post-lock discrepancy', async () => {
+      prisma.inventoryCountLine.findUnique
+        .mockResolvedValueOnce(lockedLine(15))
+        .mockResolvedValueOnce(lockedLine(12));
+
+      await expect(service.updateLine(1, 15)).rejects.toMatchObject({
+        message: 'Justification is required for discrepancy',
+      });
+
+      expect(prisma.inventoryCountLine.update).not.toHaveBeenCalled();
+    });
+
+    it('acquires the parent lock before updating a line', async () => {
+      await service.updateLine(1, 0);
+
+      expect(
+        prisma.transaction.$queryRaw.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        prisma.inventoryCountLine.update.mock.invocationCallOrder[0],
+      );
+
+      const [sql, countId] = prisma.transaction.$queryRaw.mock.calls[0];
+      expect(sql.join('')).toContain('FOR UPDATE');
+      expect(countId).toBe(5);
+    });
+
+    it('acquires the parent lock before claiming a count for validation', async () => {
+      prisma.inventoryCount.findUnique.mockResolvedValue(
+        draftCount([correctionLine]),
+      );
+      prisma.transaction.inventoryCount.findUnique.mockResolvedValue(
+        draftCount([correctionLine], 'VALIDATED'),
+      );
+
+      await service.validate(5, 23);
+
+      expect(
+        prisma.transaction.$queryRaw.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        prisma.transaction.inventoryCount.updateMany.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('rejects validate when the locked parent is already VALIDATED', async () => {
+      prisma.inventoryCount.findUnique.mockResolvedValue(
+        draftCount([correctionLine]),
+      );
+      prisma.transaction.$queryRaw.mockResolvedValue([
+        { id: 5, status: 'VALIDATED' },
+      ]);
+
+      await expect(service.validate(5, 23)).rejects.toMatchObject({
+        message: 'Inventory count already validated',
+      });
+
+      expect(
+        prisma.transaction.inventoryCount.updateMany,
+      ).not.toHaveBeenCalled();
+      expect(prisma.transaction.stockLevel.upsert).not.toHaveBeenCalled();
+      expect(prisma.transaction.stockLevel.updateMany).not.toHaveBeenCalled();
+      expect(prisma.transaction.stockMovement.create).not.toHaveBeenCalled();
+    });
+
+    it('allows only the validation that locks a DRAFT count to apply corrections', async () => {
+      prisma.inventoryCount.findUnique.mockResolvedValue(
+        draftCount([correctionLine]),
+      );
+      prisma.transaction.inventoryCount.findUnique.mockResolvedValue(
+        draftCount([correctionLine], 'VALIDATED'),
+      );
+      prisma.transaction.$queryRaw
+        .mockResolvedValueOnce([{ id: 5, status: 'DRAFT' }])
+        .mockResolvedValueOnce([{ id: 5, status: 'VALIDATED' }]);
+
+      const results = await Promise.allSettled([
+        service.validate(5, 23),
+        service.validate(5, 24),
+      ]);
+
+      expect(results[0].status).toBe('fulfilled');
+      expect(results[1].status).toBe('rejected');
+      expect((results[1] as PromiseRejectedResult).reason).toMatchObject({
+        message: 'Inventory count already validated',
+      });
+      expect(
+        prisma.transaction.inventoryCount.updateMany,
+      ).toHaveBeenCalledTimes(1);
+      expect(prisma.transaction.stockLevel.upsert).toHaveBeenCalledTimes(1);
+      expect(prisma.transaction.stockMovement.create).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('countedQty validation', () => {
     const validationPipe = new ValidationPipe({
       whitelist: true,
@@ -513,7 +668,8 @@ describe('InventoryCountsService', () => {
       prisma.inventoryCountLine.findUnique.mockResolvedValue({
         id: 1,
         systemQty: 3,
-        inventoryCount: { status: 'DRAFT' },
+        inventoryCountId: 5,
+        inventoryCount: { id: 5, status: 'DRAFT' },
       });
 
       await expect(
@@ -529,8 +685,12 @@ describe('InventoryCountsService', () => {
       prisma.inventoryCountLine.findUnique.mockResolvedValue({
         id: 1,
         systemQty: 10,
-        inventoryCount: { status: 'VALIDATED' },
+        inventoryCountId: 5,
+        inventoryCount: { id: 5, status: 'VALIDATED' },
       });
+      prisma.transaction.$queryRaw.mockResolvedValue([
+        { id: 5, status: 'VALIDATED' },
+      ]);
 
       await expect(
         service.updateLine(1, 5, 'Counted stock'),

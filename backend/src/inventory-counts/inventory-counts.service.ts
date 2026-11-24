@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCountLineDto } from './dto/update-count-line.dto';
 import { CreateInventoryCountDto } from './dto/create-inventory-count.dto';
@@ -15,6 +16,23 @@ export class InventoryCountsService {
     private readonly prisma: PrismaService,
   ) {}
 
+  private async lockInventoryCount(
+    tx: Prisma.TransactionClient,
+    id: number,
+  ): Promise<{ id: number; status: string }> {
+    const rows = await tx.$queryRaw<Array<{ id: number; status: string }>>`
+      SELECT id, status
+      FROM "InventoryCount"
+      WHERE id = ${id}
+      FOR UPDATE
+    `;
+
+    if (rows.length === 0) {
+      throw new NotFoundException('Inventory count not found');
+    }
+
+    return rows[0];
+  }
 
   async create(dto: CreateInventoryCountDto) {
 
@@ -134,8 +152,8 @@ async updateLine(
     );
   }
 
-  const line =
-    await this.prisma.inventoryCountLine.findUnique({
+  return this.prisma.$transaction(async (tx) => {
+    const line = await tx.inventoryCountLine.findUnique({
       where: {
         id: lineId,
       },
@@ -144,45 +162,49 @@ async updateLine(
       },
     });
 
+    if (!line) {
+      throw new NotFoundException('Inventory count line not found');
+    }
 
-  if (!line) {
-    throw new NotFoundException(
-  'Inventory count line not found'
-);
-  }
+    const lockedCount =
+      await this.lockInventoryCount(tx, line.inventoryCountId);
 
-  if (line.inventoryCount.status !== 'DRAFT') {
-    throw new BadRequestException(
-      'Cannot modify lines of a validated inventory count',
-    );
-  }
+    if (lockedCount.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Cannot modify lines of a validated inventory count',
+      );
+    }
 
+    const freshLine =
+      await tx.inventoryCountLine.findUnique({
+        where: {
+          id: lineId,
+        },
+      });
 
-  const discrepancy =
-    countedQty - line.systemQty;
+    if (!freshLine) {
+      throw new NotFoundException('Inventory count line not found');
+    }
 
+    const discrepancy = countedQty - freshLine.systemQty;
 
-  if (discrepancy !== 0 && !justification) {
-    throw new BadRequestException(
-  'Justification is required for discrepancy'
-);
-  }
+    if (discrepancy !== 0 && !justification) {
+      throw new BadRequestException(
+        'Justification is required for discrepancy',
+      );
+    }
 
-
-  return this.prisma.inventoryCountLine.update({
-
-    where: {
-      id: lineId,
-    },
-
-    data: {
-      countedQty,
-      discrepancy,
-      justification,
-    },
-
+    return tx.inventoryCountLine.update({
+      where: {
+        id: lineId,
+      },
+      data: {
+        countedQty,
+        discrepancy,
+        justification,
+      },
+    });
   });
-
 }
 async validate(id: number, createdById: number) {
 
@@ -216,6 +238,12 @@ async validate(id: number, createdById: number) {
 
 
   return this.prisma.$transaction(async (tx) => {
+
+    const lockedCount = await this.lockInventoryCount(tx, id);
+
+    if (lockedCount.status !== 'DRAFT') {
+      throw new BadRequestException('Inventory count already validated');
+    }
 
     const claim =
       await tx.inventoryCount.updateMany({
