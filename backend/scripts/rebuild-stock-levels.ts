@@ -1,21 +1,65 @@
-import { PrismaClient, StockMovementType } from '@prisma/client';
+import { Prisma, PrismaClient, StockMovementType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function rebuildStockLevels() {
+type RebuildMovement = {
+  id: number;
+  type: StockMovementType;
+  quantity: number;
+  productId: number;
+  warehouseId: number;
+  relatedMovementId: number | null;
+};
 
+export function getMovementDelta(movement: RebuildMovement): number {
+  switch (movement.type) {
+    case StockMovementType.IN:
+      return movement.quantity;
 
-  await prisma.stockLevel.deleteMany();
+    case StockMovementType.OUT:
+      return -movement.quantity;
 
+    case StockMovementType.CORRECTION:
+      // Corrections are signed deltas: positive adds, negative removes.
+      return movement.quantity;
 
-  const movements = await prisma.stockMovement.findMany({
+    case StockMovementType.TRANSFER:
+      if (movement.relatedMovementId === null) {
+        throw new Error(
+          `Cannot rebuild TRANSFER movement ${movement.id}: missing relatedMovementId`,
+        );
+      }
+
+      if (movement.relatedMovementId === movement.id) {
+        throw new Error(
+          `Cannot rebuild TRANSFER movement ${movement.id}: self-linked transfer`,
+        );
+      }
+
+      return movement.relatedMovementId > movement.id
+        ? -movement.quantity
+        : movement.quantity;
+
+    default:
+      throw new Error(
+        `Cannot rebuild movement ${movement.id}: unsupported type ${movement.type}`,
+      );
+  }
+}
+
+export async function rebuildStockLevelsInTransaction(
+  tx: Prisma.TransactionClient,
+): Promise<void> {
+  await tx.stockLevel.deleteMany();
+
+  const movements = await tx.stockMovement.findMany({
     orderBy: {
       createdAt: 'asc',
     },
   });
 
   for (const movement of movements) {
-    const current = await prisma.stockLevel.findUnique({
+    const current = await tx.stockLevel.findUnique({
       where: {
         productId_warehouseId: {
           productId: movement.productId,
@@ -24,17 +68,9 @@ async function rebuildStockLevels() {
       },
     });
 
-    let quantity = current?.quantity ?? 0;
+    const quantity = (current?.quantity ?? 0) + getMovementDelta(movement);
 
-    if (movement.type === StockMovementType.IN) {
-      quantity += movement.quantity;
-    }
-
-    if (movement.type === StockMovementType.OUT) {
-      quantity -= movement.quantity;
-    }
-
-    await prisma.stockLevel.upsert({
+    await tx.stockLevel.upsert({
       where: {
         productId_warehouseId: {
           productId: movement.productId,
@@ -53,10 +89,23 @@ async function rebuildStockLevels() {
       },
     });
   }
-
-
-
-  await prisma.$disconnect();
 }
 
-rebuildStockLevels();
+export async function rebuildStockLevels(
+  client: PrismaClient = prisma,
+): Promise<void> {
+  try {
+    await client.$transaction((tx) => rebuildStockLevelsInTransaction(tx), {
+      timeout: 60_000,
+    });
+  } finally {
+    await client.$disconnect();
+  }
+}
+
+if (require.main === module) {
+  rebuildStockLevels().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

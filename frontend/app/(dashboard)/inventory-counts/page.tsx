@@ -1,5 +1,7 @@
 "use client";
 
+import RoleGate from "@/components/RoleGate";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, Plus } from "lucide-react";
@@ -88,13 +90,15 @@ export default function InventoryCountsPage() {
           </p>
         </div>
 
-        <Link
+        <RoleGate allowedRoles={["ADMIN", "STOCK_MANAGER"]}>
+<Link
           href="/inventory-counts/create"
           className="inline-flex w-fit items-center gap-2 rounded-xl bg-[#6d5ef0] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5b4ce0]"
         >
           <Plus size={18} />
           Create Count
         </Link>
+</RoleGate>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
