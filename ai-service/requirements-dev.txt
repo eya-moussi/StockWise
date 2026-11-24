@@ -1,0 +1,2 @@
+# Test-only dependency for the focused ai-service tests.
+pytest==9.1.0
