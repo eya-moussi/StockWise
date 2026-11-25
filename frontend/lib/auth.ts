@@ -84,5 +84,5 @@ export function getServerUserRoleSnapshot(): UserRole | null {
 export function logout(): void {
   localStorage.removeItem("token");
   localStorage.removeItem("role");
-  window.location.href = "/login";
+  window.dispatchEvent(new Event("auth-change"));
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   getUserRoleSnapshot,
@@ -55,7 +55,9 @@ export default function ProtectedRoute({
     () => null
   );
 
-  const [authorizedKey, setAuthorizedKey] = useState("");
+  const allowedRoles = useMemo(() => getAllowedRoles(pathname), [pathname]);
+  const isAuthorized =
+    role !== null && (!allowedRoles || allowedRoles.includes(role));
 
   useEffect(() => {
     if (!role) {
@@ -63,17 +65,12 @@ export default function ProtectedRoute({
       return;
     }
 
-    const allowedRoles = getAllowedRoles(pathname);
-
     if (allowedRoles && !allowedRoles.includes(role)) {
       router.replace("/dashboard");
-      return;
     }
+  }, [allowedRoles, role, router]);
 
-    setAuthorizedKey(`${pathname}:${role}`);
-  }, [pathname, role, router]);
-
-  if (!role || authorizedKey !== `${pathname}:${role}`) {
+  if (!isAuthorized) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f3f4fb]">
         <p className="text-sm text-[#6b7194]">Loading...</p>
