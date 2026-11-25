@@ -53,7 +53,7 @@ def _fixture(n_rows=20):
         "is_anomaly": is_anomaly,
         "anomaly_kind": kinds,
         "hour": timestamps.hour,
-        "day_of_week": timestamps.dayofweek,
+        "day_of_week": timestamps.day_of_week,
         "quantity_ratio": np.linspace(0.8, 1.6, n_rows),
     })
 
@@ -78,7 +78,7 @@ def _context_fixture(n_rows=40):
         "is_synthetic": [True] * n_rows,
         "date": timestamps.normalize(),
         "hour": timestamps.hour,
-        "day_of_week": timestamps.dayofweek,
+        "day_of_week": timestamps.day_of_week,
         "quantity_ratio": np.linspace(0.9, 1.2, n_rows),
     })
 

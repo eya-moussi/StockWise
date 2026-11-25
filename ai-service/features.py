@@ -89,6 +89,24 @@ def _clean_entity_values(series):
     return text.to_numpy(), valid
 
 
+def _timestamps_to_nanoseconds(values):
+    """Return timestamp integers in ns, independent of pandas dtype resolution."""
+    timestamps = pd.to_datetime(values, errors="coerce")
+    if isinstance(timestamps.dtype, pd.DatetimeTZDtype):
+        return timestamps.astype("int64").to_numpy()
+
+    unit = np.datetime_data(timestamps.dtype)[0]
+    nanoseconds_per_unit = {
+        "ns": 1,
+        "us": 1_000,
+        "ms": 1_000_000,
+        "s": 1_000_000_000,
+    }
+    if unit not in nanoseconds_per_unit:
+        raise TypeError("Unsupported timestamp resolution: {}".format(unit))
+    return timestamps.astype("int64").to_numpy() * nanoseconds_per_unit[unit]
+
+
 def causal_entity_features(data, count_windows=ENTITY_COUNT_WINDOWS):
     """Build causal historical features for product/warehouse entities.
 
@@ -153,7 +171,6 @@ def causal_entity_features(data, count_windows=ENTITY_COUNT_WINDOWS):
 
     timestamps = pd.to_datetime(data["timestamp"], errors="coerce")
     time_valid = timestamps.notna().to_numpy()
-    time_ns = timestamps.astype("int64").to_numpy()
 
     product_values, product_valid = _clean_entity_values(data["product_id"])
     warehouse_values, warehouse_valid = _clean_entity_values(data["warehouse_id"])
@@ -166,6 +183,7 @@ def causal_entity_features(data, count_windows=ENTITY_COUNT_WINDOWS):
     if positions.size == 0:
         return pd.DataFrame(result, index=data.index, columns=columns)
 
+    time_ns = _timestamps_to_nanoseconds(timestamps.iloc[positions])
     hours = timestamps.dt.hour.to_numpy()[positions]
     angles = 2.0 * np.pi * hours / 24.0
 
@@ -174,7 +192,7 @@ def causal_entity_features(data, count_windows=ENTITY_COUNT_WINDOWS):
             "position": positions,
             "product": product_values[positions],
             "warehouse": warehouse_values[positions],
-            "time_ns": time_ns[positions],
+            "time_ns": time_ns,
             "quantity": quantity[positions],
             "quantity_valid": quantity_valid[positions],
             "hour_sin": np.sin(angles),

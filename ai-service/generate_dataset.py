@@ -95,7 +95,7 @@ WAREHOUSE_OFF_HOURS = {
 
 _DAYS = np.arange(HISTORY_DAYS)
 _DAY_IS_WEEKDAY = (
-    (pd.Timestamp("2026-01-01") + pd.to_timedelta(_DAYS, unit="D")).dayofweek < 5
+    (pd.Timestamp("2026-01-01") + pd.to_timedelta(_DAYS, unit="D")).day_of_week < 5
 )
 
 DAY_WEIGHTS = {}
@@ -577,9 +577,15 @@ def generate_dataset(rng=None):
     ]]
     dataset = dataset.sort_values("timestamp").reset_index(drop=True)
 
-    dataset["date"] = dataset["timestamp"].dt.floor("D")
-    dataset["hour"] = dataset["timestamp"].dt.hour
-    dataset["day_of_week"] = dataset["timestamp"].dt.dayofweek
+    dataset["timestamp"] = dataset["timestamp"].astype("datetime64[ns]")
+    for column in ("movement_type", "product_id", "warehouse_id", "anomaly_kind"):
+        dataset[column] = dataset[column].astype(object)
+
+    dataset["date"] = (
+        dataset["timestamp"].dt.floor("D").astype("datetime64[ns]")
+    )
+    dataset["hour"] = dataset["timestamp"].dt.hour.astype("int32")
+    dataset["day_of_week"] = dataset["timestamp"].dt.day_of_week.astype("int32")
 
     # Legacy quantity_ratio: trailing daily mean by movement type.
     # Entity-relative context features are intentionally deferred to a later

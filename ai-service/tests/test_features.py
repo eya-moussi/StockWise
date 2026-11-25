@@ -53,7 +53,7 @@ def _context_ready_fixture():
     data = _context_fixture()
     data["movement_type"] = ["IN"] * len(data)
     data["hour"] = data["timestamp"].dt.hour
-    data["day_of_week"] = data["timestamp"].dt.dayofweek
+    data["day_of_week"] = data["timestamp"].dt.day_of_week
     data["quantity_ratio"] = [1.0, 1.0, 1.0, 2.0]
     return data
 
@@ -233,6 +233,39 @@ def test_entity_gap_minutes_uses_previous_entity_timestamp():
     np.testing.assert_allclose(
         result["entity_gap_minutes"].to_numpy(), [-1.0, 10.0, 35.0]
     )
+
+
+def test_causal_features_are_identical_for_ns_and_us_timestamps():
+    features = _load_module("features_resolution_probe", FEATURES_PATH)
+    data = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                [
+                    "2026-01-01 00:00:00",
+                    "2026-01-01 00:10:00",
+                    "2026-01-01 00:10:00",
+                    "2026-01-01 00:50:00",
+                    "2026-01-01 01:10:00",
+                ]
+            ),
+            "product_id": ["P1"] * 5,
+            "warehouse_id": ["W1"] * 5,
+            "quantity": [1, 2, 3, 4, 5],
+        }
+    )
+    ns_data = data.copy()
+    ns_data["timestamp"] = ns_data["timestamp"].astype("datetime64[ns]")
+    us_data = data.copy()
+    us_data["timestamp"] = us_data["timestamp"].astype("datetime64[us]")
+
+    expected = features.causal_entity_features(
+        ns_data, count_windows=features.ENTITY_COUNT_WINDOWS
+    )
+    actual = features.causal_entity_features(
+        us_data, count_windows=features.ENTITY_COUNT_WINDOWS
+    )
+
+    pd.testing.assert_frame_equal(actual, expected)
 
 
 def test_hour_tail_score_uses_only_entity_history():
@@ -442,7 +475,7 @@ def test_build_features_adds_context_columns_when_available():
     data = _context_fixture()
     data["movement_type"] = ["IN"] * 4
     data["hour"] = data["timestamp"].dt.hour
-    data["day_of_week"] = data["timestamp"].dt.dayofweek
+    data["day_of_week"] = data["timestamp"].dt.day_of_week
     data["quantity_ratio"] = [1.0, 1.0, 1.0, 2.0]
 
     result = features.build_features(data)
