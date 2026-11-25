@@ -2,7 +2,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, UserRound, LogOut } from "lucide-react";
 import {
   getUserRoleSnapshot,
@@ -51,6 +51,7 @@ const roleLabels: Record<UserRole, string> = {
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const role = useSyncExternalStore(
     subscribeToAuthChanges,
@@ -66,6 +67,11 @@ export default function Header() {
       title: "StockWise",
       description: "Gestion intelligente de votre stock",
     };
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
 
   return (
     <header className="flex min-h-20 items-center justify-between border-b border-[#e9ebf5] bg-white px-8 py-4">
@@ -117,7 +123,7 @@ export default function Header() {
           {/* Logout */}
           <button
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
             className="flex items-center gap-2 rounded-xl border border-[#e9ebf5] px-3 py-2 text-sm font-medium text-[#6b7194] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
           >
             <LogOut size={17} />
