@@ -14,14 +14,14 @@ model Role {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  fullName     String
-  email        String   @unique
-  passwordHash String
-  roleId       Int
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  role         Role     @relation(fields: [roleId], references: [id])
+  id                     Int             @id @default(autoincrement())
+  fullName               String
+  email                  String          @unique
+  passwordHash           String
+  roleId                 Int
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  role                   Role            @relation(fields: [roleId], references: [id])
   authoredStockMovements StockMovement[] @relation("StockMovementAuthor")
 }
 
@@ -92,6 +92,7 @@ model StockMovement {
   linkedMovements   StockMovement[]   @relation("TransferRelation")
   warehouse         Warehouse         @relation(fields: [warehouseId], references: [id])
   createdBy         User?             @relation("StockMovementAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  alerts            Alert[]
 
   @@index([createdById])
 }
@@ -137,6 +138,17 @@ model InventoryCountLine {
   justification    String?
   inventoryCount   InventoryCount @relation(fields: [inventoryCountId], references: [id])
   product          Product        @relation(fields: [productId], references: [id])
+}
+
+model Alert {
+  id           Int           @id @default(autoincrement())
+  movement     StockMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  movementId   Int           @unique
+  score        Float
+  threshold    Float
+  modelVersion String
+  isAnomaly    Boolean       @default(true)
+  createdAt    DateTime      @default(now())
 }
 
 enum RoleName {

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { StockMovementsController } from './stock-movements.controller';
 import { StockMovementsService } from './stock-movements.service';
 import { StockMovementType } from './dto/create-stock-movement.dto';
+import { CreateReturnDto, ReturnType } from './dto/create-return.dto';
 
 describe('StockMovementsController', () => {
   let controller: StockMovementsController;
@@ -69,11 +70,11 @@ describe('StockMovementsController', () => {
       quantity: 4,
     };
     const correction = { productId: 1, warehouseId: 2, quantity: -1 };
-    const returned = {
+    const returned: CreateReturnDto = {
       productId: 1,
       warehouseId: 2,
       quantity: 1,
-      type: 'RETURN_CLIENT',
+      type: ReturnType.RETURN_CLIENT,
     };
 
     controller.transfer(transfer, request);

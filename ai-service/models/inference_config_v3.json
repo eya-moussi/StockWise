@@ -1,0 +1,81 @@
+{
+  "feature_group": "context_movement_ratio_v3",
+  "numeric_features": [
+    "entity_movement_quantity_ratio_log",
+    "entity_count_1h",
+    "entity_hour_tail_score"
+  ],
+  "categorical_features": [],
+  "threshold": 0.01873892275837057,
+  "contamination": 0,
+  "n_estimators": 150,
+  "random_state": 42,
+  "seed": 42,
+  "dataset": "data\\ifc_synthetic_dataset_v3.csv",
+  "trained_on": "train split only",
+  "movement_ratio_rule": {
+    "group": [
+      "product_id",
+      "warehouse_id",
+      "movement_type"
+    ],
+    "window": 60,
+    "min_history": 5,
+    "max_ratio": 10.0,
+    "feature": "log(clip(quantity / causal_median, 1e-6, inf))"
+  },
+  "split_rows": {
+    "train": 2535,
+    "validation": 845,
+    "test": 845
+  },
+  "test_metrics": {
+    "TP": 32.0,
+    "FP": 7.0,
+    "FN": 7.0,
+    "TN": 799.0,
+    "precision": 0.8205128205128205,
+    "recall": 0.8205128205128205,
+    "F1": 0.8205128205128205,
+    "FPR": 0.008684863523573201,
+    "alert_count": 39.0,
+    "alert_rate": 0.046153846153846156,
+    "AP": 0.8889982824763712
+  },
+  "confusion_matrix": [
+    [
+      799,
+      7
+    ],
+    [
+      7,
+      32
+    ]
+  ],
+  "categories": [
+    {
+      "category": "timing",
+      "support": 10,
+      "detected": 9,
+      "recall": 0.9
+    },
+    {
+      "category": "frequency",
+      "support": 10,
+      "detected": 7,
+      "recall": 0.7
+    },
+    {
+      "category": "combined",
+      "support": 12,
+      "detected": 12,
+      "recall": 1.0
+    },
+    {
+      "category": "quantity",
+      "support": 7,
+      "detected": 4,
+      "recall": 0.5714285714285714
+    }
+  ]
+}

@@ -6,14 +6,8 @@ import { InventoryCountsService } from './inventory-counts.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-  ],
-  controllers: [
-    InventoryCountsController,
-  ],
-  providers: [
-    InventoryCountsService,
-  ],
+  imports: [PrismaModule],
+  controllers: [InventoryCountsController],
+  providers: [InventoryCountsService],
 })
 export class InventoryCountsModule {}
