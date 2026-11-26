@@ -7,6 +7,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryCountsService } from './inventory-counts.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateCountLineDto } from './dto/update-count-line.dto';
+import { AnomalyDetectionService } from '../anomaly-detection/anomaly-detection.service';
 
 function draftCount(lines: any[], status = 'DRAFT') {
   return {
@@ -25,18 +26,18 @@ function createPrismaMock() {
       inventoryCountId: 5,
       inventoryCount: { id: 5, status: 'DRAFT' },
     }),
-    update: jest.fn().mockImplementation(({ data }) =>
-      Promise.resolve(data),
-    ),
+    update: jest.fn().mockImplementation(({ data }) => Promise.resolve(data)),
   };
 
   const transaction = {
-    $queryRaw: jest.fn().mockResolvedValue([
-      { id: 5, status: 'DRAFT' },
-    ]),
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 5, status: 'DRAFT' }]),
     inventoryCountLine,
     stockMovement: {
-      create: jest.fn().mockResolvedValue({ id: 1 }),
+      create: jest.fn(async ({ data }) => ({
+        id: 1,
+        ...data,
+        createdAt: new Date('2026-11-25T00:00:00Z'),
+      })),
     },
     stockLevel: {
       upsert: jest.fn().mockResolvedValue({}),
@@ -70,15 +71,23 @@ function createPrismaMock() {
 describe('InventoryCountsService', () => {
   let service: InventoryCountsService;
   let prisma: ReturnType<typeof createPrismaMock>;
+  let anomalyDetection: jest.Mocked<Pick<AnomalyDetectionService, 'detectAndRecord'>>;
 
   beforeEach(async () => {
     prisma = createPrismaMock();
+    anomalyDetection = {
+      detectAndRecord: jest.fn().mockResolvedValue(undefined),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InventoryCountsService,
         {
           provide: PrismaService,
           useValue: prisma,
+        },
+        {
+          provide: AnomalyDetectionService,
+          useValue: anomalyDetection,
         },
       ],
     }).compile();
@@ -238,19 +247,19 @@ describe('InventoryCountsService', () => {
     };
 
     it('claims the count atomically, increments stock by the saved discrepancy and persists the author', async () => {
-      mockCount(
-        draftCount([positiveLine]),
-      );
+      mockCount(draftCount([positiveLine]));
 
       await expect(service.validate(5, 23)).resolves.toMatchObject({
         id: 5,
         status: 'VALIDATED',
       });
 
-      expect(prisma.transaction.inventoryCount.updateMany).toHaveBeenCalledWith({
-        where: { id: 5, status: 'DRAFT' },
-        data: { status: 'VALIDATED', validatedAt: expect.any(Date) },
-      });
+      expect(prisma.transaction.inventoryCount.updateMany).toHaveBeenCalledWith(
+        {
+          where: { id: 5, status: 'DRAFT' },
+          data: { status: 'VALIDATED', validatedAt: expect.any(Date) },
+        },
+      );
       expect(prisma.transaction.stockLevel.upsert).toHaveBeenCalledWith({
         where: {
           productId_warehouseId: { productId: 1, warehouseId: 2 },
@@ -268,6 +277,10 @@ describe('InventoryCountsService', () => {
         }),
       });
       expect(prisma.transaction.stockLevel.updateMany).not.toHaveBeenCalled();
+      expect(anomalyDetection.detectAndRecord).toHaveBeenCalledTimes(1);
+      expect(anomalyDetection.detectAndRecord).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'CORRECTION', quantity: 3 }),
+      );
     });
 
     it('applies a guarded decrement for a count below system stock', async () => {
@@ -314,9 +327,7 @@ describe('InventoryCountsService', () => {
     it('preserves a movement made after the count was created instead of assigning countedQty', async () => {
       // Count: system 10, counted 8 (delta -2). An IN movement then raises
       // stock to 15; validation must subtract 2 (-> 13), not overwrite with 8.
-      mockCount(
-        draftCount([negativeLine]),
-      );
+      mockCount(draftCount([negativeLine]));
 
       await service.validate(5, 23);
 
@@ -335,9 +346,7 @@ describe('InventoryCountsService', () => {
     });
 
     it('rejects insufficient stock before recording a negative correction', async () => {
-      mockCount(
-        draftCount([negativeLine]),
-      );
+      mockCount(draftCount([negativeLine]));
       prisma.transaction.stockLevel.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(service.validate(5, 23)).rejects.toMatchObject({
@@ -380,9 +389,7 @@ describe('InventoryCountsService', () => {
     });
 
     it('rejects an already validated count before starting a transaction', async () => {
-      mockCount(
-        draftCount([positiveLine], 'VALIDATED'),
-      );
+      mockCount(draftCount([positiveLine], 'VALIDATED'));
 
       await expect(service.validate(5, 23)).rejects.toMatchObject({
         message: 'Inventory count already validated',
@@ -391,9 +398,7 @@ describe('InventoryCountsService', () => {
     });
 
     it('allows only one of two concurrent validations to create a correction', async () => {
-      mockCount(
-        draftCount([positiveLine]),
-      );
+      mockCount(draftCount([positiveLine]));
       prisma.transaction.inventoryCount.updateMany
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
@@ -405,9 +410,9 @@ describe('InventoryCountsService', () => {
 
       expect(results[0].status).toBe('fulfilled');
       expect(results[1].status).toBe('rejected');
-      expect(
-        (results[1] as PromiseRejectedResult).reason,
-      ).toBeInstanceOf(BadRequestException);
+      expect((results[1] as PromiseRejectedResult).reason).toBeInstanceOf(
+        BadRequestException,
+      );
       expect(prisma.transaction.stockMovement.create).toHaveBeenCalledTimes(1);
       expect(prisma.transaction.stockLevel.upsert).toHaveBeenCalledTimes(1);
     });
@@ -459,9 +464,11 @@ describe('InventoryCountsService', () => {
       });
 
       expect(
-        prisma.transaction.inventoryCount.updateMany.mock.invocationCallOrder[0],
+        prisma.transaction.inventoryCount.updateMany.mock
+          .invocationCallOrder[0],
       ).toBeLessThan(
-        prisma.transaction.inventoryCount.findUnique.mock.invocationCallOrder[0],
+        prisma.transaction.inventoryCount.findUnique.mock
+          .invocationCallOrder[0],
       );
     });
   });
@@ -490,9 +497,7 @@ describe('InventoryCountsService', () => {
         { id: 5, status: 'VALIDATED' },
       ]);
 
-      await expect(
-        service.updateLine(1, 12, 'Recount'),
-      ).rejects.toMatchObject({
+      await expect(service.updateLine(1, 12, 'Recount')).rejects.toMatchObject({
         message: 'Cannot modify lines of a validated inventory count',
       });
 
@@ -504,13 +509,13 @@ describe('InventoryCountsService', () => {
         .mockResolvedValueOnce(lockedLine(10))
         .mockResolvedValueOnce(lockedLine(12));
 
-      await expect(
-        service.updateLine(1, 15, 'Recount'),
-      ).resolves.toMatchObject({
-        countedQty: 15,
-        discrepancy: 3,
-        justification: 'Recount',
-      });
+      await expect(service.updateLine(1, 15, 'Recount')).resolves.toMatchObject(
+        {
+          countedQty: 15,
+          discrepancy: 3,
+          justification: 'Recount',
+        },
+      );
 
       expect(prisma.inventoryCountLine.update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -561,7 +566,8 @@ describe('InventoryCountsService', () => {
       expect(
         prisma.transaction.$queryRaw.mock.invocationCallOrder[0],
       ).toBeLessThan(
-        prisma.transaction.inventoryCount.updateMany.mock.invocationCallOrder[0],
+        prisma.transaction.inventoryCount.updateMany.mock
+          .invocationCallOrder[0],
       );
     });
 
@@ -632,9 +638,7 @@ describe('InventoryCountsService', () => {
       );
 
     it('rejects negative values in DTO validation', async () => {
-      await expect(validateDto(-1)).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(validateDto(-1)).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it.each([0, 5])('accepts %i in DTO validation', async (countedQty) => {

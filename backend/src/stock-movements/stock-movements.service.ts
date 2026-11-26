@@ -10,10 +10,10 @@ import { CreateReturnDto, ReturnType } from './dto/create-return.dto';
 import { CreateCorrectionDto } from './dto/create-correction.dto';
 import {
   CreateStockMovementDto,
-  CreateStockMovementInputDto,
   StockMovementType,
 } from './dto/create-stock-movement.dto';
 import { QueryStockMovementDto } from './dto/query-stock-movement.dto';
+import { AnomalyDetectionService } from '../anomaly-detection/anomaly-detection.service';
 
 import { StockMovementType as PrismaStockMovementType } from '@prisma/client';
 
@@ -30,10 +30,14 @@ type StockMovementInput = {
 export class StockMovementsService {
   constructor(
     private prisma: PrismaService,
+    private readonly anomalyDetection: AnomalyDetectionService,
   ) {}
 
   async create(dto: CreateStockMovementDto, createdById: number) {
-    if (dto.type !== StockMovementType.IN && dto.type !== StockMovementType.OUT) {
+    if (
+      dto.type !== StockMovementType.IN &&
+      dto.type !== StockMovementType.OUT
+    ) {
       throw new BadRequestException('Only IN and OUT movements are allowed');
     }
 
@@ -105,10 +109,9 @@ export class StockMovementsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const movement = await this.prisma.$transaction(async (tx) => {
       const decrementStock =
-        type === PrismaStockMovementType.OUT ||
-        (isCorrection && quantity < 0);
+        type === PrismaStockMovementType.OUT || (isCorrection && quantity < 0);
       const amount = Math.abs(quantity);
 
       if (decrementStock) {
@@ -155,9 +158,10 @@ export class StockMovementsService {
         },
       });
     });
+
+    await this.anomalyDetection.detectAndRecord(movement);
+    return movement;
   }
-
-
 
   async transfer(dto: CreateTransferDto, createdById: number) {
     if (
@@ -178,7 +182,7 @@ export class StockMovementsService {
       );
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const sourceUpdate = await tx.stockLevel.updateMany({
         where: {
           productId: dto.productId,
@@ -241,6 +245,10 @@ export class StockMovementsService {
 
       return { outMovement, inMovement };
     });
+
+    await this.anomalyDetection.detectAndRecord(result.outMovement);
+    await this.anomalyDetection.detectAndRecord(result.inMovement);
+    return result;
   }
 
   async findAll(query: QueryStockMovementDto) {

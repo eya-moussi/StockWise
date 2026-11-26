@@ -6,14 +6,15 @@ import {
 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateCountLineDto } from './dto/update-count-line.dto';
 import { CreateInventoryCountDto } from './dto/create-inventory-count.dto';
+import { AnomalyDetectionService } from '../anomaly-detection/anomaly-detection.service';
+import type { DetectedMovement } from '../anomaly-detection/anomaly-detection.service';
 
 @Injectable()
 export class InventoryCountsService {
-
   constructor(
     private readonly prisma: PrismaService,
+    private readonly anomalyDetection: AnomalyDetectionService,
   ) {}
 
   private async lockInventoryCount(
@@ -35,7 +36,6 @@ export class InventoryCountsService {
   }
 
   async create(dto: CreateInventoryCountDto) {
-
     const productIds = dto.lines.map((line) => line.productId);
 
     if (new Set(productIds).size !== productIds.length) {
@@ -52,9 +52,10 @@ export class InventoryCountsService {
     });
 
     const systemQtyByProductId = new Map<number, number>(
-      stockLevels.map(
-        (stock): [number, number] => [stock.productId, stock.quantity],
-      ),
+      stockLevels.map((stock): [number, number] => [
+        stock.productId,
+        stock.quantity,
+      ]),
     );
 
     const missingProductIds = productIds.filter(
@@ -67,187 +68,155 @@ export class InventoryCountsService {
       );
     }
 
-    const inventoryCount =
-      await this.prisma.inventoryCount.create({
+    const inventoryCount = await this.prisma.inventoryCount.create({
+      data: {
+        warehouseId: dto.warehouseId,
 
-        data: {
-          warehouseId: dto.warehouseId,
+        lines: {
+          create: dto.lines.map((line) => {
+            const systemQty = systemQtyByProductId.get(line.productId)!;
 
-          lines: {
-            create: dto.lines.map((line) => {
+            return {
+              productId: line.productId,
 
-              const systemQty = systemQtyByProductId.get(line.productId)!;
+              systemQty,
 
-              return {
-                productId: line.productId,
+              countedQty: line.countedQty,
 
-                systemQty,
-
-                countedQty: line.countedQty,
-
-                discrepancy: line.countedQty - systemQty,
-
-              };
-            }),
-          },
+              discrepancy: line.countedQty - systemQty,
+            };
+          }),
         },
+      },
 
-        include: {
-          lines: true,
-        },
-
-      });
-
+      include: {
+        lines: true,
+      },
+    });
 
     return inventoryCount;
   }
   async findAll() {
-
-  return this.prisma.inventoryCount.findMany({
-
-    include: {
-      warehouse: true,
-      lines: true,
-    },
-
-    orderBy: {
-      createdAt: 'desc',
-    },
-
-  });
-
-}
-
-
-
-async findOne(id: number) {
-
-  return this.prisma.inventoryCount.findUnique({
-
-    where: {
-      id,
-    },
-
-    include: {
-      warehouse: true,
-
-      lines: {
-        include: {
-          product: true,
-        },
-      },
-    },
-
-  });
-
-}
-async updateLine(
-  lineId: number,
-  countedQty: number,
-  justification?: string,
-) {
-  if (!Number.isInteger(countedQty) || countedQty < 0) {
-    throw new BadRequestException(
-      'Counted quantity must be a nonnegative integer',
-    );
-  }
-
-  return this.prisma.$transaction(async (tx) => {
-    const line = await tx.inventoryCountLine.findUnique({
-      where: {
-        id: lineId,
-      },
+    return this.prisma.inventoryCount.findMany({
       include: {
-        inventoryCount: true,
+        warehouse: true,
+        lines: true,
+      },
+
+      orderBy: {
+        createdAt: 'desc',
       },
     });
+  }
 
-    if (!line) {
-      throw new NotFoundException('Inventory count line not found');
-    }
+  async findOne(id: number) {
+    return this.prisma.inventoryCount.findUnique({
+      where: {
+        id,
+      },
 
-    const lockedCount =
-      await this.lockInventoryCount(tx, line.inventoryCountId);
+      include: {
+        warehouse: true,
 
-    if (lockedCount.status !== 'DRAFT') {
+        lines: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+  }
+  async updateLine(lineId: number, countedQty: number, justification?: string) {
+    if (!Number.isInteger(countedQty) || countedQty < 0) {
       throw new BadRequestException(
-        'Cannot modify lines of a validated inventory count',
+        'Counted quantity must be a nonnegative integer',
       );
     }
 
-    const freshLine =
-      await tx.inventoryCountLine.findUnique({
+    return this.prisma.$transaction(async (tx) => {
+      const line = await tx.inventoryCountLine.findUnique({
+        where: {
+          id: lineId,
+        },
+        include: {
+          inventoryCount: true,
+        },
+      });
+
+      if (!line) {
+        throw new NotFoundException('Inventory count line not found');
+      }
+
+      const lockedCount = await this.lockInventoryCount(
+        tx,
+        line.inventoryCountId,
+      );
+
+      if (lockedCount.status !== 'DRAFT') {
+        throw new BadRequestException(
+          'Cannot modify lines of a validated inventory count',
+        );
+      }
+
+      const freshLine = await tx.inventoryCountLine.findUnique({
         where: {
           id: lineId,
         },
       });
 
-    if (!freshLine) {
-      throw new NotFoundException('Inventory count line not found');
-    }
+      if (!freshLine) {
+        throw new NotFoundException('Inventory count line not found');
+      }
 
-    const discrepancy = countedQty - freshLine.systemQty;
+      const discrepancy = countedQty - freshLine.systemQty;
 
-    if (discrepancy !== 0 && !justification) {
-      throw new BadRequestException(
-        'Justification is required for discrepancy',
-      );
-    }
+      if (discrepancy !== 0 && !justification) {
+        throw new BadRequestException(
+          'Justification is required for discrepancy',
+        );
+      }
 
-    return tx.inventoryCountLine.update({
-      where: {
-        id: lineId,
-      },
-      data: {
-        countedQty,
-        discrepancy,
-        justification,
-      },
+      return tx.inventoryCountLine.update({
+        where: {
+          id: lineId,
+        },
+        data: {
+          countedQty,
+          discrepancy,
+          justification,
+        },
+      });
     });
-  });
-}
-async validate(id: number, createdById: number) {
-
-  const count =
-    await this.prisma.inventoryCount.findUnique({
-
-      where:{
+  }
+  async validate(id: number, createdById: number) {
+    const count = await this.prisma.inventoryCount.findUnique({
+      where: {
         id,
       },
 
-      include:{
-        lines:true,
+      include: {
+        lines: true,
       },
-
     });
 
+    if (!count) {
+      throw new NotFoundException('Inventory count not found');
+    }
 
-  if(!count){
-    throw new NotFoundException(
-  "Inventory count not found"
-);
-  }
-
-
-  if(count.status !== "DRAFT"){
-    throw new BadRequestException(
-  "Inventory count already validated"
-);
-  }
-
-
-
-  return this.prisma.$transaction(async (tx) => {
-
-    const lockedCount = await this.lockInventoryCount(tx, id);
-
-    if (lockedCount.status !== 'DRAFT') {
+    if (count.status !== 'DRAFT') {
       throw new BadRequestException('Inventory count already validated');
     }
 
-    const claim =
-      await tx.inventoryCount.updateMany({
+    const createdCorrections: DetectedMovement[] = [];
 
+    const result = await this.prisma.$transaction(async (tx) => {
+      const lockedCount = await this.lockInventoryCount(tx, id);
+
+      if (lockedCount.status !== 'DRAFT') {
+        throw new BadRequestException('Inventory count already validated');
+      }
+
+      const claim = await tx.inventoryCount.updateMany({
         where: {
           id,
           status: 'DRAFT',
@@ -257,18 +226,13 @@ async validate(id: number, createdById: number) {
           status: 'VALIDATED',
           validatedAt: new Date(),
         },
-
       });
 
-    if (claim.count !== 1) {
-      throw new BadRequestException(
-        'Inventory count already validated',
-      );
-    }
+      if (claim.count !== 1) {
+        throw new BadRequestException('Inventory count already validated');
+      }
 
-    const freshCount =
-      await tx.inventoryCount.findUnique({
-
+      const freshCount = await tx.inventoryCount.findUnique({
         where: {
           id,
         },
@@ -276,62 +240,46 @@ async validate(id: number, createdById: number) {
         include: {
           lines: true,
         },
-
       });
 
-    if (!freshCount) {
-      throw new NotFoundException(
-        'Inventory count not found',
-      );
-    }
-
-    for (const line of freshCount.lines) {
-
-      if (
-        line.discrepancy !== 0 &&
-        !line.justification
-      ) {
-        throw new BadRequestException(
-          'Missing justification',
-        );
+      if (!freshCount) {
+        throw new NotFoundException('Inventory count not found');
       }
 
-    }
-
-    for (const line of freshCount.lines) {
-
-      if (line.discrepancy === 0) {
-        continue;
+      for (const line of freshCount.lines) {
+        if (line.discrepancy !== 0 && !line.justification) {
+          throw new BadRequestException('Missing justification');
+        }
       }
 
-      if (line.discrepancy > 0) {
-        await tx.stockLevel.upsert({
+      for (const line of freshCount.lines) {
+        if (line.discrepancy === 0) {
+          continue;
+        }
 
-          where: {
-            productId_warehouseId: {
+        if (line.discrepancy > 0) {
+          await tx.stockLevel.upsert({
+            where: {
+              productId_warehouseId: {
+                productId: line.productId,
+                warehouseId: freshCount.warehouseId,
+              },
+            },
+
+            update: {
+              quantity: { increment: line.discrepancy },
+            },
+
+            create: {
               productId: line.productId,
               warehouseId: freshCount.warehouseId,
+              quantity: line.discrepancy,
             },
-          },
+          });
+        } else {
+          const amount = -line.discrepancy;
 
-          update: {
-            quantity: { increment: line.discrepancy },
-          },
-
-          create: {
-            productId: line.productId,
-            warehouseId: freshCount.warehouseId,
-            quantity: line.discrepancy,
-          },
-
-        });
-      } else {
-
-        const amount = -line.discrepancy;
-
-        const adjusted =
-          await tx.stockLevel.updateMany({
-
+          const adjusted = await tx.stockLevel.updateMany({
             where: {
               productId: line.productId,
               warehouseId: freshCount.warehouseId,
@@ -341,51 +289,49 @@ async validate(id: number, createdById: number) {
             data: {
               quantity: { decrement: amount },
             },
-
           });
 
-        if (adjusted.count !== 1) {
-          throw new BadRequestException('Insufficient stock');
+          if (adjusted.count !== 1) {
+            throw new BadRequestException('Insufficient stock');
+          }
         }
+
+        const correction = await tx.stockMovement.create({
+          data: {
+            type: 'CORRECTION',
+
+            quantity: line.discrepancy,
+
+            reference: `Inventory count #${id}`,
+
+            reason: line.justification,
+
+            productId: line.productId,
+
+            warehouseId: freshCount.warehouseId,
+
+            createdById,
+          },
+        });
+
+        createdCorrections.push(correction);
       }
 
-      await tx.stockMovement.create({
-
-        data: {
-
-          type: 'CORRECTION',
-
-          quantity: line.discrepancy,
-
-          reference: `Inventory count #${id}`,
-
-          reason: line.justification,
-
-          productId: line.productId,
-
-          warehouseId: freshCount.warehouseId,
-
-          createdById,
-
+      return tx.inventoryCount.findUnique({
+        where: {
+          id,
         },
 
+        include: {
+          lines: true,
+        },
       });
-
-    }
-
-    return tx.inventoryCount.findUnique({
-
-      where: {
-        id,
-      },
-
-      include: {
-        lines: true,
-      },
-
     });
 
-  });
+    for (const movement of createdCorrections) {
+      await this.anomalyDetection.detectAndRecord(movement);
+    }
 
-}
+    return result;
+  }
 }

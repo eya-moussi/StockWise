@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { AnomalyDetectionModule } from './anomaly-detection/anomaly-detection.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -15,21 +16,17 @@ import { StockLevelsModule } from './stock-levels/stock-levels.module';
 import { InventoryCountsModule } from './inventory-counts/inventory-counts.module';
 import * as Joi from 'joi';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
-  isGlobal: true,
+      isGlobal: true,
 
-  validationSchema: Joi.object({
+      validationSchema: Joi.object({
+        DATABASE_URL: Joi.string().required(),
 
-    DATABASE_URL: Joi.string().required(),
-
-    JWT_SECRET: Joi.string().required(),
-
-  }),
-
-}),
+        JWT_SECRET: Joi.string().required(),
+      }),
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -41,6 +38,7 @@ import * as Joi from 'joi';
     StockLevelsModule,
     InventoryCountsModule,
     AuditLogsModule,
+    AnomalyDetectionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

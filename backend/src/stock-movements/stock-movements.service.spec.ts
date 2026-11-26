@@ -8,10 +8,12 @@ import {
   StockMovementType,
 } from './dto/create-stock-movement.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
+import { AnomalyDetectionService } from '../anomaly-detection/anomaly-detection.service';
 
 describe('StockMovementsService', () => {
   let service: StockMovementsService;
   let prisma: any;
+  let anomalyDetection: jest.Mocked<Pick<AnomalyDetectionService, 'detectAndRecord'>>;
   let transaction: any;
   let movementId: number;
 
@@ -33,7 +35,13 @@ describe('StockMovementsService', () => {
       location: { findFirst: jest.fn().mockResolvedValue({ id: 1 }) },
       $transaction: jest.fn((callback) => callback(transaction)),
     };
-    service = new StockMovementsService(prisma as PrismaService);
+    anomalyDetection = {
+      detectAndRecord: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new StockMovementsService(
+      prisma as PrismaService,
+      anomalyDetection as unknown as AnomalyDetectionService,
+    );
   });
 
   const movement: CreateStockMovementDto = {
@@ -61,6 +69,10 @@ describe('StockMovementsService', () => {
         createdById: 7,
       }),
     });
+    expect(anomalyDetection.detectAndRecord).toHaveBeenCalledTimes(1);
+    expect(anomalyDetection.detectAndRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'IN', quantity: 5 }),
+    );
   });
 
   it('rejects generic movement types other than IN and OUT', async () => {
@@ -75,22 +87,28 @@ describe('StockMovementsService', () => {
     transaction.stockLevel.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.create({
-        ...movement,
-        type: StockMovementType.OUT,
-        quantity: 1,
-      }, 7),
+      service.create(
+        {
+          ...movement,
+          type: StockMovementType.OUT,
+          quantity: 1,
+        },
+        7,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(transaction.stockMovement.create).not.toHaveBeenCalled();
   });
 
   it('applies OUT with an atomic conditional decrement', async () => {
-    await service.create({
-      ...movement,
-      type: StockMovementType.OUT,
-      quantity: 2,
-    }, 7);
+    await service.create(
+      {
+        ...movement,
+        type: StockMovementType.OUT,
+        quantity: 2,
+      },
+      7,
+    );
 
     expect(transaction.stockLevel.updateMany).toHaveBeenCalledWith({
       where: {
@@ -138,11 +156,14 @@ describe('StockMovementsService', () => {
   });
 
   it('applies positive corrections as increments from zero', async () => {
-    await service.createCorrection({
-      productId: 1,
-      warehouseId: 2,
-      quantity: 4,
-    }, 7);
+    await service.createCorrection(
+      {
+        productId: 1,
+        warehouseId: 2,
+        quantity: 4,
+      },
+      7,
+    );
 
     expect(transaction.stockLevel.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,11 +175,14 @@ describe('StockMovementsService', () => {
 
   it('rejects zero corrections', async () => {
     await expect(
-      service.createCorrection({
-        productId: 1,
-        warehouseId: 2,
-        quantity: 0,
-      }, 7),
+      service.createCorrection(
+        {
+          productId: 1,
+          warehouseId: 2,
+          quantity: 0,
+        },
+        7,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -168,11 +192,14 @@ describe('StockMovementsService', () => {
     transaction.stockLevel.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.createCorrection({
-        productId: 1,
-        warehouseId: 2,
-        quantity: -1,
-      }, 7),
+      service.createCorrection(
+        {
+          productId: 1,
+          warehouseId: 2,
+          quantity: -1,
+        },
+        7,
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(transaction.stockMovement.create).not.toHaveBeenCalled();
@@ -186,7 +213,7 @@ describe('StockMovementsService', () => {
       quantity: 1,
     };
 
-    await expect(service.transfer(transfer)).rejects.toBeInstanceOf(
+    await expect(service.transfer(transfer, 7)).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -221,6 +248,7 @@ describe('StockMovementsService', () => {
       }),
     );
     expect(transaction.stockMovement.create).toHaveBeenCalledTimes(2);
+    expect(anomalyDetection.detectAndRecord).toHaveBeenCalledTimes(2);
     expect(transaction.stockMovement.create).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -242,27 +270,30 @@ describe('StockMovementsService', () => {
   it.each([
     [ReturnType.RETURN_CLIENT, 'IN'],
     [ReturnType.RETURN_SUPPLIER, 'OUT'],
-  ] as const)('preserves existing %s stock effect', async (type, expectedType) => {
-    const returned: CreateReturnDto = {
-      type,
-      productId: 1,
-      warehouseId: 2,
-      quantity: 2,
-    };
-
-    await service.createReturn(returned, 7);
-
-    expect(transaction.stockMovement.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        type: expectedType,
+  ] as const)(
+    'preserves existing %s stock effect',
+    async (type, expectedType) => {
+      const returned: CreateReturnDto = {
+        type,
+        productId: 1,
+        warehouseId: 2,
         quantity: 2,
-        createdById: 7,
-      }),
-    });
-    if (expectedType === 'IN') {
-      expect(transaction.stockLevel.upsert).toHaveBeenCalled();
-    } else {
-      expect(transaction.stockLevel.updateMany).toHaveBeenCalled();
-    }
-  });
+      };
+
+      await service.createReturn(returned, 7);
+
+      expect(transaction.stockMovement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          type: expectedType,
+          quantity: 2,
+          createdById: 7,
+        }),
+      });
+      if (expectedType === 'IN') {
+        expect(transaction.stockLevel.upsert).toHaveBeenCalled();
+      } else {
+        expect(transaction.stockLevel.updateMany).toHaveBeenCalled();
+      }
+    },
+  );
 });
