@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { AnomalyDetectionModule } from './anomaly-detection/anomaly-detection.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -39,6 +40,7 @@ import * as Joi from 'joi';
     InventoryCountsModule,
     AuditLogsModule,
     AnomalyDetectionModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

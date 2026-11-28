@@ -4,12 +4,14 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   getUserRoleSnapshot,
   getServerUserRoleSnapshot,
   subscribeToAuthChanges,
   UserRole,
 } from "@/lib/auth";
+import { alertsService } from "@/services/alerts";
 import {
   LayoutDashboard,
   Package,
@@ -19,6 +21,7 @@ import {
   ArrowLeftRight,
   ClipboardList,
   ScrollText,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -65,6 +68,12 @@ const navigation: {
     roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
   },
   {
+    label: "Alertes d'anomalies",
+    href: "/alerts",
+    icon: ShieldAlert,
+    roles: ["ADMIN", "STOCK_MANAGER", "VIEWER"],
+  },
+  {
     label: "Journaux d'audit",
     href: "/audit-logs",
     icon: ScrollText,
@@ -80,6 +89,14 @@ export default function Sidebar() {
     getUserRoleSnapshot,
     getServerUserRoleSnapshot
   );
+
+  const { data: toVerifyAlerts = [] } = useQuery({
+    queryKey: ["alerts", "to-verify-count"],
+    queryFn: () => alertsService.getAll({ status: "TO_VERIFY" }),
+    enabled: role !== null,
+    refetchInterval: 30000,
+  });
+  const toVerifyCount = toVerifyAlerts.length;
 
   const visibleNavigation = navigation.filter(
     (item) => role !== null && item.roles.includes(role)
@@ -119,21 +136,32 @@ export default function Sidebar() {
 
             const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-[#6d5ef0] text-white shadow-sm"
-                    : "text-[#6b7194] hover:bg-[#eeedfc] hover:text-[#6d5ef0]"
-                }`}
-              >
-                <Icon size={19} />
-                <span>{item.label}</span>
-              </Link>
-            );
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-[#6d5ef0] text-white shadow-sm"
+                      : "text-[#6b7194] hover:bg-[#eeedfc] hover:text-[#6d5ef0]"
+                  }`}
+                >
+                  <Icon size={19} />
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === "/alerts" && toVerifyCount > 0 ? (
+                    <span
+                      className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {toVerifyCount > 99 ? "99+" : toVerifyCount}
+                    </span>
+                  ) : null}
+                </Link>
+              );
           })}
         </div>
       </nav>
