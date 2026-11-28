@@ -23,6 +23,7 @@ model User {
   updatedAt              DateTime        @updatedAt
   role                   Role            @relation(fields: [roleId], references: [id])
   authoredStockMovements StockMovement[] @relation("StockMovementAuthor")
+  reviewedAlerts         Alert[]         @relation("AlertReviewer")
 }
 
 model ProductCategory {
@@ -141,14 +142,28 @@ model InventoryCountLine {
 }
 
 model Alert {
-  id           Int           @id @default(autoincrement())
-  movement     StockMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
-  movementId   Int           @unique
-  score        Float
-  threshold    Float
-  modelVersion String
-  isAnomaly    Boolean       @default(true)
-  createdAt    DateTime      @default(now())
+  id            Int           @id @default(autoincrement())
+  movement      StockMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  movementId    Int           @unique
+  score         Float
+  threshold     Float
+  modelVersion  String
+  isAnomaly     Boolean       @default(true)
+  status        AlertStatus   @default(TO_VERIFY)
+  comment       String?
+  processedById Int?
+  processedBy   User?         @relation("AlertReviewer", fields: [processedById], references: [id], onDelete: SetNull)
+  processedAt   DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([status])
+  @@index([processedById])
+}
+
+enum AlertStatus {
+  TO_VERIFY
+  CONFIRMED
+  NORMAL
 }
 
 enum RoleName {

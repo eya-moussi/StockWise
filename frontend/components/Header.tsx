@@ -3,6 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Bell, UserRound, LogOut } from "lucide-react";
 import {
   getUserRoleSnapshot,
@@ -11,6 +12,7 @@ import {
   logout,
   UserRole,
 } from "@/lib/auth";
+import { alertsService } from "@/services/alerts";
 
 const pageInfo: Record<string, { title: string; description: string }> = {
   "/dashboard": {
@@ -37,6 +39,10 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Inventaires",
     description: "Comparez le stock compté au stock enregistré",
   },
+  "/alerts": {
+    title: "Alertes d'anomalies",
+    description: "Consultez et traitez les alertes à vérifier",
+  },
   "/audit-logs": {
     title: "Journaux d'audit",
     description: "Consultez l'activité du système et des utilisateurs",
@@ -58,6 +64,14 @@ export default function Header() {
     getUserRoleSnapshot,
     getServerUserRoleSnapshot
   );
+
+  const { data: toVerifyAlerts = [] } = useQuery({
+    queryKey: ["alerts", "to-verify-count"],
+    queryFn: () => alertsService.getAll({ status: "TO_VERIFY" }),
+    enabled: role !== null,
+    refetchInterval: 30000,
+  });
+  const toVerifyCount = toVerifyAlerts.length;
 
   const currentPage =
     pageInfo[pathname] ??
@@ -93,11 +107,25 @@ export default function Header() {
         {/* Notifications */}
         <button
           type="button"
-          aria-label="Notifications"
+          aria-label={
+            toVerifyCount > 0
+              ? `${toVerifyCount} alerte(s) à vérifier`
+              : "Notifications"
+          }
+          title={
+            toVerifyCount > 0
+              ? `${toVerifyCount} alerte(s) à vérifier`
+              : "Aucune alerte à vérifier"
+          }
+          onClick={() => router.push("/alerts")}
           className="relative rounded-xl p-2 text-[#6b7194] transition-colors hover:bg-[#f3f4fb] hover:text-[#6d5ef0]"
         >
           <Bell size={21} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#6d5ef0]" />
+          {toVerifyCount > 0 ? (
+            <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-5 text-white">
+              {toVerifyCount > 99 ? "99+" : toVerifyCount}
+            </span>
+          ) : null}
         </button>
 
         {/* Profil et déconnexion */}
